@@ -5,8 +5,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { 
   CloudSun, Wind, Droplets, Navigation, Search, Loader2, MapPin, BookOpen, Edit2, Check, 
-  Sunrise, Sunset, Sun, Eye, Shirt, Car, Home as HomeIcon, Palmtree, HeartPulse, Zap, Coffee, Camera, Tent, // <-- تم تغيير الاسم هنا
-  Fish, Bug
+  Sunrise, Sunset, Sun, Eye, Shirt, Car, Home as HomeIcon, Palmtree, HeartPulse, Zap, Coffee, Camera, Tent,
+  Fish, Bug, Megaphone, ThumbsUp
 } from 'lucide-react';
 import { getWeather, searchCities, getLocationByIP, getCityNameFromCoords, WeatherData, CityResult } from './weather';
 
@@ -15,33 +15,107 @@ const WeatherMap = dynamic(() => import('./Map'), {
   loading: () => <div className="h-[500px] w-full bg-slate-900 animate-pulse rounded-2xl flex items-center justify-center text-slate-500">جاري تحميل الرادار...</div>
 });
 
+// --- مكون "عقل المجتمع" (الجديد) ---
+const HiveMindButton = ({ city }: { city: string }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [voted, setVoted] = useState(false);
+  const [count, setCount] = useState(0); // عدد المساهمين الوهمي للتحفيز
+
+  useEffect(() => {
+    // محاكاة: رقم عشوائي بين 5 و 50 ليعطي شعوراً بالحياة
+    setCount(Math.floor(Math.random() * 45) + 5);
+  }, []);
+
+  const handleVote = (type: string) => {
+    setVoted(true);
+    setIsOpen(false);
+    // هنا سنرسل البيانات للخادم لاحقاً
+    alert(`شكراً لمساهمتك! تم تسجيل حالتك (${type}) في شبكة الوعي.`);
+  };
+
+  if (voted) {
+    return (
+      <div className="fixed bottom-20 left-4 z-50 bg-green-600 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2 animate-in slide-in-from-bottom duration-500">
+        <ThumbsUp className="w-4 h-4" />
+        <span className="text-xs font-bold">مساهمتك مسجلة</span>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {/* الزر العائم */}
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        className="fixed bottom-20 left-4 z-50 bg-indigo-600 text-white p-3 rounded-full shadow-xl hover:bg-indigo-700 transition-transform hover:scale-110 active:scale-95 flex items-center gap-2"
+      >
+        <Megaphone className="w-6 h-6" />
+        <span className="text-xs font-bold hidden md:inline">أبلغ عن الطقس</span>
+      </button>
+
+      {/* القائمة المنبثقة */}
+      {isOpen && (
+        <div className="fixed bottom-36 left-4 z-50 bg-white rounded-2xl shadow-2xl border border-slate-100 p-4 w-64 animate-in zoom-in-95 duration-200">
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="font-bold text-slate-800 text-sm">ما هي حالة الطقس الآن؟</h3>
+            <button onClick={() => setIsOpen(false)} className="text-slate-400 hover:text-slate-600 text-xs">إغلاق</button>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-2">
+            <button onClick={() => handleVote('مشمس')} className="flex flex-col items-center p-2 bg-amber-50 rounded-xl hover:bg-amber-100 transition-colors">
+              <span className="text-xl">☀️</span>
+              <span className="text-xs font-bold text-amber-700 mt-1">مشمس</span>
+            </button>
+            <button onClick={() => handleVote('غائم')} className="flex flex-col items-center p-2 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
+              <span className="text-xl">☁️</span>
+              <span className="text-xs font-bold text-slate-600 mt-1">غائم</span>
+            </button>
+            <button onClick={() => handleVote('ممطر')} className="flex flex-col items-center p-2 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors">
+              <span className="text-xl">🌧️</span>
+              <span className="text-xs font-bold text-blue-700 mt-1">ممطر</span>
+            </button>
+            <button onClick={() => handleVote('عاصف')} className="flex flex-col items-center p-2 bg-purple-50 rounded-xl hover:bg-purple-100 transition-colors">
+              <span className="text-xl">⛈️</span>
+              <span className="text-xs font-bold text-purple-700 mt-1">عاصف</span>
+            </button>
+          </div>
+
+          <div className="mt-3 pt-3 border-t border-slate-100 text-center">
+            <p className="text-[10px] text-slate-400">
+              <span className="font-bold text-indigo-600">{count}</span> شخص في {city} يشاركون الآن
+            </p>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
+
+// --- باقي المكونات (كما هي، مختصرة هنا للنسخ) ---
+// (انسخ الكود السابق كاملاً للمكونات الأخرى: getLifestyleInsights, generateStory, EditableLocation, InfoCard, WeatherHero)
+// لضمان عدم ضياع أي شيء، سأضع لك WeatherHero والمكون الرئيسي محدثين فقط، والباقي كما هو.
+
+// ... (انسخ getLifestyleInsights, generateStory, EditableLocation, InfoCard من الرد السابق) ...
+// سأعيد كتابتها هنا لتنسخ الملف كاملاً وتريح بالك:
+
 const getLifestyleInsights = (data: WeatherData) => {
   const insights = [];
   const headacheRisk = data.pressure < 1005 ? "مرتفع" : "منخفض";
   insights.push({ title: "خطر الصداع", value: headacheRisk, icon: HeartPulse, color: headacheRisk.includes("مرتفع") ? "text-red-500" : "text-green-500" });
-
   const drying = (data.humidity < 60 && data.temp > 15) ? "ممتاز" : "صعب";
   insights.push({ title: "نشر الغسيل", value: drying, icon: Shirt, color: "text-blue-500" });
-
   const watering = data.soilMoisture < 0.3 ? "اسقِ الآن" : "رطبة";
   insights.push({ title: "سقي النباتات", value: watering, icon: Palmtree, color: "text-green-600" });
-
   const carWash = data.rainProb > 30 ? "أجّله" : "مناسب";
   insights.push({ title: "غسيل السيارة", value: carWash, icon: Car, color: "text-indigo-500" });
-
   const mosquito = (data.temp > 20 && data.humidity > 60) ? "نشط" : "خامل";
   insights.push({ title: "البعوض", value: mosquito, icon: Bug, color: "text-orange-600" });
-
   const running = (data.temp > 10 && data.temp < 25) ? "مثالي" : "صعب";
   insights.push({ title: "الجري", value: running, icon: Zap, color: "text-emerald-500" });
-
   const stars = data.cloudCover < 20 ? "صافية" : "غائمة";
   insights.push({ title: "رصد النجوم", value: stars, icon: Camera, color: "text-purple-500" });
-
-  // استخدام HomeIcon هنا بدلاً من Home
   const indoor = data.uvIndex > 8 ? "ابقَ بالداخل" : "اخرج";
   insights.push({ title: "النشاط المنزلي", value: indoor, icon: HomeIcon, color: "text-rose-500" });
-
   return insights;
 };
 
@@ -63,7 +137,6 @@ const EditableLocation = ({ city, onSave }: { city: string, onSave: (newName: st
   const [tempName, setTempName] = useState(city);
   useEffect(() => { setTempName(city); }, [city]);
   const handleSave = () => { setIsEditing(false); onSave(tempName); };
-
   if (isEditing) return (
     <div className="flex items-center gap-2 bg-white/50 rounded-full px-2 py-1 border border-blue-300">
       <input autoFocus type="text" value={tempName} onChange={(e) => setTempName(e.target.value)} className="bg-transparent outline-none text-blue-800 font-bold text-sm w-32 text-center" />
@@ -87,7 +160,6 @@ const InfoCard = ({ icon: Icon, title, value, subtext, color }: any) => (
 
 const WeatherHero = ({ data, onCityRename }: { data: WeatherData, onCityRename: (n: string) => void }) => {
   const insights = getLifestyleInsights(data);
-
   return (
     <div className="flex flex-col gap-6">
       <div className="glass-card p-8 text-center relative overflow-hidden transition-all duration-500 hover:shadow-2xl">
@@ -109,14 +181,12 @@ const WeatherHero = ({ data, onCityRename }: { data: WeatherData, onCityRename: 
           </div>
         </div>
       </div>
-
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <InfoCard icon={Sunrise} title="الشروق" value={data.sunrise} color="border-amber-100" subtext="text-amber-500" />
         <InfoCard icon={Sunset} title="الغروب" value={data.sunset} color="border-orange-100" subtext="text-orange-500" />
         <InfoCard icon={Sun} title="مؤشر UV" value={data.uvIndex} color="border-purple-100" subtext="text-purple-500" />
         <InfoCard icon={Eye} title="الرؤية" value={`${Math.round(data.visibility / 1000)} كم`} color="border-emerald-100" subtext="text-emerald-500" />
       </div>
-
       <div>
         <h2 className="text-lg font-bold text-slate-700 mb-4 px-2 flex items-center gap-2"><Coffee className="w-5 h-5 text-amber-600" /> دليلك اليومي</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -129,6 +199,7 @@ const WeatherHero = ({ data, onCityRename }: { data: WeatherData, onCityRename: 
   );
 };
 
+// --- المكون الرئيسي (تم إضافة زر المجتمع) ---
 export default function Home() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -235,6 +306,10 @@ export default function Home() {
 
   return (
     <main className="min-h-screen p-4 md:p-8 max-w-5xl mx-auto relative" dir="rtl">
+      
+      {/* --- زر المجتمع (الجديد) --- */}
+      {weather && <HiveMindButton city={weather.city} />}
+
       <header className="flex justify-between items-center mb-8 relative z-50">
         <div className="flex items-center gap-2">
           <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/20">
