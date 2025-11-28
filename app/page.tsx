@@ -9,53 +9,89 @@ import {
   Fish, Bug, Megaphone, ThumbsUp
 } from 'lucide-react';
 import { getWeather, searchCities, getLocationByIP, getCityNameFromCoords, WeatherData, CityResult } from './weather';
+// استيراد الاتصال بقاعدة البيانات
+import { supabase } from './lib/supabaseClient';
 
 const WeatherMap = dynamic(() => import('./Map'), { 
   ssr: false,
   loading: () => <div className="h-[500px] w-full bg-slate-900 animate-pulse rounded-2xl flex items-center justify-center text-slate-500">جاري تحميل الرادار...</div>
 });
 
-// --- مكون "عقل المجتمع" (الجديد) ---
+// --- مكون "عقل المجتمع" (الحقيقي والمتصل) ---
 const HiveMindButton = ({ city }: { city: string }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [voted, setVoted] = useState(false);
-  const [count, setCount] = useState(0); // عدد المساهمين الوهمي للتحفيز
+  const [count, setCount] = useState(0);
 
   useEffect(() => {
-    // محاكاة: رقم عشوائي بين 5 و 50 ليعطي شعوراً بالحياة
-    setCount(Math.floor(Math.random() * 45) + 5);
-  }, []);
+    // 1. جلب العدد الحقيقي عند التحميل
+    const fetchRealVotes = async () => {
+      try {
+        // نحسب التقارير في هذه المدينة خلال آخر 6 ساعات
+        const { count: realCount, error } = await supabase
+          .from('weather_reports')
+          .select('*', { count: 'exact', head: true })
+          .eq('city', city) // للمدينة الحالية فقط
+          .gte('created_at', new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString()); // آخر 6 ساعات
 
-  const handleVote = (type: string) => {
+        if (!error && realCount !== null) {
+          setCount(realCount);
+        }
+      } catch (e) {
+        console.error("Error fetching votes:", e);
+      }
+    };
+
+    fetchRealVotes();
+
+    // 2. الاشتراك الحي (Live): أي شخص يصوت في العالم سيظهر الرقم فوراً
+    const subscription = supabase
+      .channel('public:weather_reports')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'weather_reports', filter: `city=eq.${city}` }, (payload) => {
+        setCount((prev) => prev + 1);
+        // تأثير صوتي أو بصري يمكن إضافته هنا مستقبلاً
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(subscription); };
+  }, [city]);
+
+  const handleVote = async (type: string) => {
     setVoted(true);
     setIsOpen(false);
-    // هنا سنرسل البيانات للخادم لاحقاً
-    alert(`شكراً لمساهمتك! تم تسجيل حالتك (${type}) في شبكة الوعي.`);
+    
+    // إرسال التقرير لقاعدة البيانات الحقيقية
+    try {
+      await supabase.from('weather_reports').insert([
+        { city: city, condition: type, reliability: 1 }
+      ]);
+      alert(`تم الإرسال! بياناتك الآن جزء من شبكة الوعي العالمية.`);
+    } catch (e) {
+      console.error("Error sending vote:", e);
+    }
   };
 
   if (voted) {
     return (
-      <div className="fixed bottom-20 left-4 z-50 bg-green-600 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2 animate-in slide-in-from-bottom duration-500">
+      <div className="fixed bottom-24 left-4 z-[100] bg-green-600 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2 animate-in slide-in-from-bottom duration-500">
         <ThumbsUp className="w-4 h-4" />
-        <span className="text-xs font-bold">مساهمتك مسجلة</span>
+        <span className="text-xs font-bold">تم الإبلاغ: {count} تقارير</span>
       </div>
     );
   }
 
   return (
     <>
-      {/* الزر العائم */}
       <button 
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-20 left-4 z-50 bg-indigo-600 text-white p-3 rounded-full shadow-xl hover:bg-indigo-700 transition-transform hover:scale-110 active:scale-95 flex items-center gap-2"
+        className="fixed bottom-24 left-4 z-[100] bg-indigo-600 text-white p-3 rounded-full shadow-xl hover:bg-indigo-700 transition-transform hover:scale-110 active:scale-95 flex items-center gap-2"
       >
         <Megaphone className="w-6 h-6" />
-        <span className="text-xs font-bold hidden md:inline">أبلغ عن الطقس</span>
+        {count > 0 && <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-white">{count}</span>}
       </button>
 
-      {/* القائمة المنبثقة */}
       {isOpen && (
-        <div className="fixed bottom-36 left-4 z-50 bg-white rounded-2xl shadow-2xl border border-slate-100 p-4 w-64 animate-in zoom-in-95 duration-200">
+        <div className="fixed bottom-40 left-4 z-[100] bg-white rounded-2xl shadow-2xl border border-slate-100 p-4 w-64 animate-in zoom-in-95 duration-200">
           <div className="flex justify-between items-center mb-3">
             <h3 className="font-bold text-slate-800 text-sm">ما هي حالة الطقس الآن؟</h3>
             <button onClick={() => setIsOpen(false)} className="text-slate-400 hover:text-slate-600 text-xs">إغلاق</button>
@@ -82,7 +118,7 @@ const HiveMindButton = ({ city }: { city: string }) => {
 
           <div className="mt-3 pt-3 border-t border-slate-100 text-center">
             <p className="text-[10px] text-slate-400">
-              <span className="font-bold text-indigo-600">{count}</span> شخص في {city} يشاركون الآن
+              <span className="font-bold text-indigo-600">{count}</span> تقارير حية من {city}
             </p>
           </div>
         </div>
@@ -91,13 +127,7 @@ const HiveMindButton = ({ city }: { city: string }) => {
   );
 };
 
-// --- باقي المكونات (كما هي، مختصرة هنا للنسخ) ---
-// (انسخ الكود السابق كاملاً للمكونات الأخرى: getLifestyleInsights, generateStory, EditableLocation, InfoCard, WeatherHero)
-// لضمان عدم ضياع أي شيء، سأضع لك WeatherHero والمكون الرئيسي محدثين فقط، والباقي كما هو.
-
-// ... (انسخ getLifestyleInsights, generateStory, EditableLocation, InfoCard من الرد السابق) ...
-// سأعيد كتابتها هنا لتنسخ الملف كاملاً وتريح بالك:
-
+// --- باقي المكونات (كما هي تماماً - لم تتغير) ---
 const getLifestyleInsights = (data: WeatherData) => {
   const insights = [];
   const headacheRisk = data.pressure < 1005 ? "مرتفع" : "منخفض";
@@ -199,7 +229,6 @@ const WeatherHero = ({ data, onCityRename }: { data: WeatherData, onCityRename: 
   );
 };
 
-// --- المكون الرئيسي (تم إضافة زر المجتمع) ---
 export default function Home() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -306,8 +335,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen p-4 md:p-8 max-w-5xl mx-auto relative" dir="rtl">
-      
-      {/* --- زر المجتمع (الجديد) --- */}
+      {/* الزر الحقيقي المتصل بـ Supabase */}
       {weather && <HiveMindButton city={weather.city} />}
 
       <header className="flex justify-between items-center mb-8 relative z-50">
