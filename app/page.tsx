@@ -6,10 +6,10 @@ import dynamic from 'next/dynamic';
 import { 
   CloudSun, Wind, Droplets, Navigation, Search, Loader2, MapPin, BookOpen, Edit2, Check, 
   Sunrise, Sunset, Sun, Eye, Shirt, Car, Home as HomeIcon, Palmtree, HeartPulse, Zap, Coffee, Camera, Tent,
-  Fish, Bug, Megaphone, ThumbsUp
+  Fish, Bug, Megaphone, ThumbsUp, Activity, AlertTriangle, X
 } from 'lucide-react';
 import { getWeather, searchCities, getLocationByIP, getCityNameFromCoords, WeatherData, CityResult } from './weather';
-// استيراد الاتصال بقاعدة البيانات
+import { getRecentEarthquakes, Hazard } from './hazards'; // استيراد المحرك الجديد
 import { supabase } from './lib/supabaseClient';
 
 const WeatherMap = dynamic(() => import('./Map'), { 
@@ -17,117 +17,110 @@ const WeatherMap = dynamic(() => import('./Map'), {
   loading: () => <div className="h-[500px] w-full bg-slate-900 animate-pulse rounded-2xl flex items-center justify-center text-slate-500">جاري تحميل الرادار...</div>
 });
 
-// --- مكون "عقل المجتمع" (الحقيقي والمتصل) ---
+// --- مكون شريط المخاطر (الجديد) ---
+const HazardTicker = () => {
+  const [hazards, setHazards] = useState<Hazard[]>([]);
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    getRecentEarthquakes().then(data => {
+      // نركز فقط على الزلازل المؤثرة (> 4.5)
+      const serious = data.filter(h => h.mag > 4.5);
+      setHazards(serious);
+    });
+  }, []);
+
+  if (!visible || hazards.length === 0) return null;
+
+  return (
+    <div className="bg-red-50 border-b border-red-100 p-2 relative animate-in slide-in-from-top duration-500">
+      <div className="max-w-5xl mx-auto flex items-center justify-between">
+        <div className="flex items-center gap-2 overflow-hidden">
+          <div className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse flex items-center gap-1">
+            <Activity className="w-3 h-3" /> رصد عالمي
+          </div>
+          <div className="flex gap-4 text-xs font-medium text-red-800 whitespace-nowrap overflow-x-auto no-scrollbar">
+            {hazards.map(h => (
+              <span key={h.id} className="flex items-center gap-1">
+                <span>🌍 زلزال بقوة <b>{h.mag}</b> في {h.place}</span>
+                <span className="text-red-300">•</span>
+              </span>
+            ))}
+          </div>
+        </div>
+        <button onClick={() => setVisible(false)} className="text-red-400 hover:text-red-600 p-1">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// --- مكونات المجتمع ---
 const HiveMindButton = ({ city }: { city: string }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [voted, setVoted] = useState(false);
   const [count, setCount] = useState(0);
 
   useEffect(() => {
-    // 1. جلب العدد الحقيقي عند التحميل
     const fetchRealVotes = async () => {
       try {
-        // نحسب التقارير في هذه المدينة خلال آخر 6 ساعات
         const { count: realCount, error } = await supabase
           .from('weather_reports')
           .select('*', { count: 'exact', head: true })
-          .eq('city', city) // للمدينة الحالية فقط
-          .gte('created_at', new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString()); // آخر 6 ساعات
+          .eq('city', city)
+          .gte('created_at', new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString());
 
-        if (!error && realCount !== null) {
-          setCount(realCount);
-        }
-      } catch (e) {
-        console.error("Error fetching votes:", e);
-      }
+        if (!error && realCount !== null) setCount(realCount);
+      } catch (e) { console.error(e); }
     };
-
     fetchRealVotes();
-
-    // 2. الاشتراك الحي (Live): أي شخص يصوت في العالم سيظهر الرقم فوراً
     const subscription = supabase
       .channel('public:weather_reports')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'weather_reports', filter: `city=eq.${city}` }, (payload) => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'weather_reports', filter: `city=eq.${city}` }, () => {
         setCount((prev) => prev + 1);
-        // تأثير صوتي أو بصري يمكن إضافته هنا مستقبلاً
       })
       .subscribe();
-
     return () => { supabase.removeChannel(subscription); };
   }, [city]);
 
   const handleVote = async (type: string) => {
     setVoted(true);
     setIsOpen(false);
-    
-    // إرسال التقرير لقاعدة البيانات الحقيقية
     try {
-      await supabase.from('weather_reports').insert([
-        { city: city, condition: type, reliability: 1 }
-      ]);
-      alert(`تم الإرسال! بياناتك الآن جزء من شبكة الوعي العالمية.`);
-    } catch (e) {
-      console.error("Error sending vote:", e);
-    }
+      await supabase.from('weather_reports').insert([{ city: city, condition: type, reliability: 1 }]);
+      alert(`تم الإرسال!`);
+    } catch (e) { console.error(e); }
   };
 
-  if (voted) {
-    return (
-      <div className="fixed bottom-24 left-4 z-[100] bg-green-600 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2 animate-in slide-in-from-bottom duration-500">
-        <ThumbsUp className="w-4 h-4" />
-        <span className="text-xs font-bold">تم الإبلاغ: {count} تقارير</span>
-      </div>
-    );
-  }
+  if (voted) return (
+    <div className="fixed bottom-24 left-4 z-[100] bg-green-600 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2 animate-in slide-in-from-bottom duration-500">
+      <ThumbsUp className="w-4 h-4" /> <span className="text-xs font-bold">تم الإبلاغ: {count}</span>
+    </div>
+  );
 
   return (
     <>
-      <button 
-        onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-24 left-4 z-[100] bg-indigo-600 text-white p-3 rounded-full shadow-xl hover:bg-indigo-700 transition-transform hover:scale-110 active:scale-95 flex items-center gap-2"
-      >
+      <button onClick={() => setIsOpen(!isOpen)} className="fixed bottom-24 left-4 z-[100] bg-indigo-600 text-white p-3 rounded-full shadow-xl hover:bg-indigo-700 transition-transform hover:scale-110 active:scale-95 flex items-center gap-2">
         <Megaphone className="w-6 h-6" />
         {count > 0 && <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-white">{count}</span>}
       </button>
-
       {isOpen && (
         <div className="fixed bottom-40 left-4 z-[100] bg-white rounded-2xl shadow-2xl border border-slate-100 p-4 w-64 animate-in zoom-in-95 duration-200">
-          <div className="flex justify-between items-center mb-3">
-            <h3 className="font-bold text-slate-800 text-sm">ما هي حالة الطقس الآن؟</h3>
-            <button onClick={() => setIsOpen(false)} className="text-slate-400 hover:text-slate-600 text-xs">إغلاق</button>
-          </div>
-          
+          <div className="flex justify-between items-center mb-3"><h3 className="font-bold text-slate-800 text-sm">حالة الطقس؟</h3><button onClick={() => setIsOpen(false)} className="text-slate-400 hover:text-slate-600 text-xs">إغلاق</button></div>
           <div className="grid grid-cols-2 gap-2">
-            <button onClick={() => handleVote('مشمس')} className="flex flex-col items-center p-2 bg-amber-50 rounded-xl hover:bg-amber-100 transition-colors">
-              <span className="text-xl">☀️</span>
-              <span className="text-xs font-bold text-amber-700 mt-1">مشمس</span>
-            </button>
-            <button onClick={() => handleVote('غائم')} className="flex flex-col items-center p-2 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
-              <span className="text-xl">☁️</span>
-              <span className="text-xs font-bold text-slate-600 mt-1">غائم</span>
-            </button>
-            <button onClick={() => handleVote('ممطر')} className="flex flex-col items-center p-2 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors">
-              <span className="text-xl">🌧️</span>
-              <span className="text-xs font-bold text-blue-700 mt-1">ممطر</span>
-            </button>
-            <button onClick={() => handleVote('عاصف')} className="flex flex-col items-center p-2 bg-purple-50 rounded-xl hover:bg-purple-100 transition-colors">
-              <span className="text-xl">⛈️</span>
-              <span className="text-xs font-bold text-purple-700 mt-1">عاصف</span>
-            </button>
+            <button onClick={() => handleVote('مشمس')} className="flex flex-col items-center p-2 bg-amber-50 rounded-xl hover:bg-amber-100"><span className="text-xl">☀️</span><span className="text-xs font-bold text-amber-700 mt-1">مشمس</span></button>
+            <button onClick={() => handleVote('غائم')} className="flex flex-col items-center p-2 bg-slate-50 rounded-xl hover:bg-slate-100"><span className="text-xl">☁️</span><span className="text-xs font-bold text-slate-600 mt-1">غائم</span></button>
+            <button onClick={() => handleVote('ممطر')} className="flex flex-col items-center p-2 bg-blue-50 rounded-xl hover:bg-blue-100"><span className="text-xl">🌧️</span><span className="text-xs font-bold text-blue-700 mt-1">ممطر</span></button>
+            <button onClick={() => handleVote('عاصف')} className="flex flex-col items-center p-2 bg-purple-50 rounded-xl hover:bg-purple-100"><span className="text-xl">⛈️</span><span className="text-xs font-bold text-purple-700 mt-1">عاصف</span></button>
           </div>
-
-          <div className="mt-3 pt-3 border-t border-slate-100 text-center">
-            <p className="text-[10px] text-slate-400">
-              <span className="font-bold text-indigo-600">{count}</span> تقارير حية من {city}
-            </p>
-          </div>
+          <div className="mt-3 pt-3 border-t border-slate-100 text-center"><p className="text-[10px] text-slate-400"><span className="font-bold text-indigo-600">{count}</span> تقارير حية</p></div>
         </div>
       )}
     </>
   );
 };
 
-// --- باقي المكونات (كما هي تماماً - لم تتغير) ---
 const getLifestyleInsights = (data: WeatherData) => {
   const insights = [];
   const headacheRisk = data.pressure < 1005 ? "مرتفع" : "منخفض";
@@ -152,12 +145,8 @@ const getLifestyleInsights = (data: WeatherData) => {
 const generateStory = (data: WeatherData): string => {
   const { feelsLike, windSpeed, description, uvIndex, humidity } = data;
   let story = "";
-  if (feelsLike > 30) story += "الجو حار. ";
-  else if (feelsLike < 10) story += "الجو بارد. ";
-  else story += "الجو معتدل. ";
-  if (humidity > 80) story += "رطوبة عالية. ";
-  if (windSpeed > 30) story += "رياح قوية. ";
-  if (uvIndex > 7) story += "شمس حارقة. ";
+  if (feelsLike > 30) story += "الجو حار. "; else if (feelsLike < 10) story += "الجو بارد. "; else story += "الجو معتدل. ";
+  if (humidity > 80) story += "رطوبة عالية. "; if (windSpeed > 30) story += "رياح قوية. "; if (uvIndex > 7) story += "شمس حارقة. ";
   story += description;
   return story;
 };
@@ -335,7 +324,10 @@ export default function Home() {
 
   return (
     <main className="min-h-screen p-4 md:p-8 max-w-5xl mx-auto relative" dir="rtl">
-      {/* الزر الحقيقي المتصل بـ Supabase */}
+      
+      {/* --- 1. شريط المخاطر الجديد --- */}
+      <HazardTicker />
+
       {weather && <HiveMindButton city={weather.city} />}
 
       <header className="flex justify-between items-center mb-8 relative z-50">
