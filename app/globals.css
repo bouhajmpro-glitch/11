@@ -1,49 +1,62 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* ============================================================================
+   ملف: app/globals.css
+   الوظيفة: التصميم العام وحركات الأنيميشن
+   ============================================================================ */
 
-:root {
-  --background: 210 40% 98%;
-  --foreground: 222.2 84% 4.9%;
-}
-
-body {
-  @apply bg-slate-50 text-slate-900 antialiased;
-  background: linear-gradient(to bottom right, #e0f2fe, #f0f9ff, #fff);
-  min-height: 100vh;
-}
-
-.glass-card {
-  @apply bg-white/70 backdrop-blur-lg border border-white/20 shadow-xl rounded-2xl;
-}
-
-/* أنيميشن بسيط للعوم */
-@keyframes float {
-  0% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
-  100% { transform: translateY(0px); }
-}
-.animate-float {
-  animation: float 6s ease-in-out infinite;
-}
-/* ... (الكود السابق) ... */
-
-/* --- إصلاحات الخريطة الضرورية --- */
-
-/* 1. إصلاح الترتيب لتعمل الأزرار والزوم */
-.leaflet-container {
-  width: 100%;
-  height: 100%;
-  z-index: 10 !important; /* يضمن أن الخريطة فوق كل شيء */
-}
-
-/* 2. إصلاح طبقات الألوان لتظهر بوضوح */
-.leaflet-tile-pane {
-  opacity: 1 !important;
-}
-
-/* 3. جعل أزرار التحكم (الزائد والناقص) تظهر فوق الخريطة */
-.leaflet-control-container .leaflet-top,
-.leaflet-control-container .leaflet-bottom {
-  z-index: 1000 !important;
-}
+   @tailwind base;
+   @tailwind components;
+   @tailwind utilities;
+   
+   :root {
+     --background: 210 40% 98%;
+     --foreground: 222.2 84% 4.9%;
+   }
+   
+   body {
+     @apply bg-slate-50 text-slate-900 antialiased;
+     /* خلفية السماء الزرقاء المتدرجة */
+     background: linear-gradient(to bottom right, #e0f2fe, #f0f9ff, #fff);
+     min-height: 100vh;
+     /* منع تحديد النصوص ليظهر كتطبيق */
+     user-select: none;
+   }
+   
+   /* البطاقات الزجاجية */
+   .glass-card {
+     @apply bg-white/70 backdrop-blur-lg border border-white/20 shadow-xl rounded-2xl;
+   }
+   
+   /* --- الحركات (Animations) --- */
+   
+   /* 1. حركة العوم للغيوم */
+   @keyframes float {
+     0% { transform: translateY(0px); }
+     50% { transform: translateY(-10px); }
+     100% { transform: translateY(0px); }
+   }
+   .animate-float {
+     animation: float 6s ease-in-out infinite;
+   }
+   
+   /* 2. حركة شريط الأخبار (Marquee) - الجديد */
+   @keyframes marquee {
+     0% { transform: translateX(100%); } /* يبدأ من أقصى اليمين */
+     100% { transform: translateX(-100%); } /* ينتهي في أقصى اليسار */
+   }
+   .animate-marquee {
+     animation: marquee 40s linear infinite; /* بطيء وسلس */
+     display: inline-block;
+   }
+   
+   /* 3. وميض بطيء للتحذيرات */
+   .animate-pulse-slow {
+     animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+   }
+   
+   /* --- إصلاحات الخريطة --- */
+   .leaflet-container {
+     width: 100%;
+     height: 100%;
+     z-index: 10 !important;
+   }
+   
