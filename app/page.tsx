@@ -12,95 +12,13 @@ import { getWeather, searchCities, getLocationByIP, getCityNameFromCoords, Weath
 import { getGlobalHazards, Hazard } from './hazards';
 import { supabase } from './lib/supabaseClient';
 
+// 1. استيراد الخريطة
 const WeatherMap = dynamic(() => import('./Map'), { 
   ssr: false,
   loading: () => <div className="h-[500px] w-full bg-slate-900 animate-pulse rounded-2xl flex items-center justify-center text-slate-500">جاري تحميل الرادار...</div>
 });
 
-// --- 1. نظام البصيرة الإنسانية (The Human Insight System) ---
-// يحول الأرقام إلى جمل مفيدة مع شرح السبب
-const getLifestyleInsights = (data: WeatherData) => {
-  return [
-    { 
-      title: "خطر الصداع", 
-      value: data.pressure < 1005 ? "مرتفع" : "منخفض", 
-      reason: data.pressure < 1005 ? "انخفاض الضغط الجوي قد يسبب ضغطاً على الجيوب الأنفية." : "الضغط الجوي مستقر ومريح للجسم.",
-      icon: HeartPulse, 
-      color: data.pressure < 1005 ? "text-red-500" : "text-green-500" 
-    },
-    { 
-      title: "نشر الغسيل", 
-      value: data.humidity < 60 ? "ممتاز" : "صعب", 
-      reason: data.humidity < 60 ? "الجو جاف وسيساعد على تبخر الماء بسرعة." : "الرطوبة العالية ستمنع الملابس من الجفاف.",
-      icon: Shirt, 
-      color: "text-blue-500" 
-    },
-    { 
-      title: "سقي النباتات", 
-      value: data.soilMoisture < 0.3 ? "اسقِ الآن" : "رطبة", 
-      reason: data.soilMoisture < 0.3 ? "معدل تبخر التربة عالٍ اليوم." : "الأرض تحتفظ برطوبتها، لا داعي للهدر.",
-      icon: Palmtree, 
-      color: "text-green-600" 
-    },
-    { 
-      title: "غسيل السيارة", 
-      value: data.rainProb > 30 ? "أجّله" : "مناسب", 
-      reason: data.rainProb > 30 ? "هناك احتمال لهطول الأمطار قريباً." : "لا توجد أمطار في الأفق القريب.",
-      icon: Car, 
-      color: "text-indigo-500" 
-    },
-    { 
-      title: "البعوض", 
-      value: data.temp > 20 && data.humidity > 60 ? "نشط" : "خامل", 
-      reason: "البعوض يفضل الأجواء الحارة والرطبة.",
-      icon: Bug, 
-      color: "text-orange-600" 
-    },
-    { 
-      title: "النشاط المنزلي", 
-      value: data.uvIndex > 7 ? "ابقَ بالداخل" : "اخرج", 
-      reason: data.uvIndex > 7 ? "أشعة الشمس فوق البنفسجية عند مستويات خطرة." : "الأجواء الخارجية آمنة ومناسبة.",
-      icon: HomeIcon, 
-      color: "text-rose-500" 
-    },
-  ];
-};
-
-// --- مكون البطاقة الذكية (مع الشرح المنبثق) ---
-const InfoCard = ({ item }: { item: any }) => {
-  // حالة لفتح الشرح عند الضغط
-  const [showReason, setShowReason] = useState(false);
-
-  return (
-    <div 
-      onClick={() => setShowReason(!showReason)}
-      className={`relative p-3 rounded-xl border border-slate-100 bg-white/70 backdrop-blur-md flex flex-col items-center text-center shadow-sm hover:scale-105 transition-all duration-300 h-full justify-center cursor-pointer group ${showReason ? 'ring-2 ring-blue-200' : ''}`}
-    >
-      {/* أيقونة الشرح الصغيرة */}
-      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-        <Info className="w-3 h-3 text-slate-400" />
-      </div>
-
-      <item.icon className={`w-6 h-6 mb-2 ${item.color}`} />
-      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">{item.title}</span>
-      <span className="text-sm font-bold text-slate-800 leading-tight">{item.value}</span>
-
-      {/* الشرح المنبثق */}
-      {showReason && (
-        <div className="absolute inset-0 bg-white/95 rounded-xl p-2 flex items-center justify-center text-center animate-in zoom-in duration-200 z-10">
-          <p className="text-xs text-slate-600 font-medium leading-tight">
-            {item.reason}
-          </p>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// --- باقي المكونات (كما هي، محدثة لتستخدم InfoCard الجديد) ---
-
-// (انسخ NewsModal, HazardTicker, HiveMindButton, generateStory, EditableLocation من الرد السابق - لم يتغيروا)
-// لتسهيل الأمر عليك، سأضع الكود كاملاً للملف لكي تنسخه مرة واحدة:
+// 2. المكونات المساعدة
 
 const NewsModal = ({ hazard, onClose }: { hazard: Hazard, onClose: () => void }) => {
   return (
@@ -117,35 +35,59 @@ const NewsModal = ({ hazard, onClose }: { hazard: Hazard, onClose: () => void })
             <span>{hazard.date}</span>
           </div>
           <p className="text-slate-600 leading-relaxed mb-6">{hazard.details}</p>
-          {hazard.url && (<a href={hazard.url} target="_blank" rel="noopener noreferrer" className="w-full bg-blue-600 text-white py-3 rounded-xl flex items-center justify-center gap-2 font-bold hover:bg-blue-700 transition-colors"><ExternalLink className="w-4 h-4" /> اقرأ المصدر الكامل</a>)}
+          {hazard.url && (
+            <a href={hazard.url} target="_blank" rel="noopener noreferrer" className="w-full bg-blue-600 text-white py-3 rounded-xl flex items-center justify-center gap-2 font-bold hover:bg-blue-700 transition-colors">
+              <ExternalLink className="w-4 h-4" /> اقرأ المصدر الكامل
+            </a>
+          )}
         </div>
       </div>
     </div>
   );
 };
 
+// شريط الأخبار المصحح (هنا كان الخطأ)
 const HazardTicker = () => {
   const [hazards, setHazards] = useState<Hazard[]>([]);
   const [visible, setVisible] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
   const [selectedNews, setSelectedNews] = useState<Hazard | null>(null);
-  useEffect(() => { getGlobalHazards().then(setHazards); }, []);
-  useEffect(() => { if (typeof window !== 'undefined') window.speechSynthesis.getVoices(); }, []);
+
+  useEffect(() => {
+    getGlobalHazards().then(setHazards);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.speechSynthesis.getVoices();
+    }
+  }, []);
+
   if (!visible || hazards.length === 0) return null;
+
   const speakNews = () => {
-    if (isPlaying) { window.speechSynthesis.cancel(); setIsPlaying(false); return; }
+    if (isPlaying) {
+      window.speechSynthesis.cancel();
+      setIsPlaying(false);
+      return;
+    }
     setIsPlaying(true);
     const textToRead = "إليك موجز أحوال الكوكب.. " + hazards.map(h => h.title).join(". .. ");
     const utterance = new SpeechSynthesisUtterance(textToRead);
     const voices = window.speechSynthesis.getVoices();
     const arabicVoice = voices.find(v => v.lang.includes('ar'));
     if (arabicVoice) utterance.voice = arabicVoice;
-    utterance.lang = 'ar-SA'; utterance.rate = 0.9;
+    utterance.lang = 'ar-SA';
+    utterance.rate = 0.9;
     utterance.onend = () => setIsPlaying(false);
     window.speechSynthesis.speak(utterance);
   };
+
   const isCritical = hazards.some(h => h.severity === 'critical');
-  const bgStyle = isCritical ? "bg-gradient-to-r from-red-600 to-red-700 text-white animate-pulse-slow" : "bg-slate-900 text-slate-200";
+  const bgStyle = isCritical 
+    ? "bg-gradient-to-r from-red-600 to-red-700 text-white animate-pulse-slow" 
+    : "bg-slate-900 text-slate-200";
+
   const getIcon = (type: string) => {
     switch (type) {
       case 'earthquake': return <Activity className="w-4 h-4 text-red-400" />;
@@ -154,32 +96,82 @@ const HazardTicker = () => {
       default: return <Globe className="w-4 h-4 text-green-400" />;
     }
   };
+
   return (
     <>
       {selectedNews && <NewsModal hazard={selectedNews} onClose={() => setSelectedNews(null)} />}
+      
       <div className={`${bgStyle} border-b border-white/10 p-2 relative shadow-xl z-[60] transition-colors duration-1000 overflow-hidden`}>
         <div className="max-w-5xl mx-auto flex items-center justify-between gap-3">
-          <button onClick={speakNews} className={`p-1.5 rounded-full transition-all shrink-0 ${isPlaying ? 'bg-red-500 text-white animate-pulse' : 'bg-white/10 hover:bg-white/20 text-white'}`}><{isPlaying ? StopCircle : Volume2} className="w-4 h-4" /></button>
+          
+          {/* --- التصحيح هنا: كتابة نظيفة --- */}
+          <button 
+            onClick={speakNews}
+            className={`p-1.5 rounded-full transition-all shrink-0 ${isPlaying ? 'bg-red-500 text-white animate-pulse' : 'bg-white/10 hover:bg-white/20 text-white'}`}
+          >
+            {isPlaying ? <StopCircle className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+          </button>
+
           <div className="flex-1 overflow-hidden flex items-center relative h-6">
-             <div className="absolute right-0 top-0 bottom-0 z-10 bg-gradient-to-l from-inherit to-transparent pl-4 flex items-center pointer-events-none"><span className="text-[10px] font-black uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded ml-2 flex items-center gap-1"><Radio className="w-3 h-3" /> الموجز الحي</span></div>
+             <div className="absolute right-0 top-0 bottom-0 z-10 bg-gradient-to-l from-inherit to-transparent pl-4 flex items-center pointer-events-none">
+               <span className="text-[10px] font-black uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded ml-2 flex items-center gap-1">
+                 <Radio className="w-3 h-3" /> الموجز الحي
+               </span>
+             </div>
              <div className="flex gap-12 animate-marquee whitespace-nowrap items-center pr-28">
               {hazards.map((h) => (
-                <button key={h.id} onClick={() => setSelectedNews(h)} className="flex items-center gap-2 hover:bg-white/10 px-2 py-1 rounded transition-colors">{getIcon(h.type)}<span className="text-xs font-medium underline decoration-dotted underline-offset-4">{h.title}</span></button>
+                <button key={h.id} onClick={() => setSelectedNews(h)} className="flex items-center gap-2 hover:bg-white/10 px-2 py-1 rounded transition-colors">
+                  {getIcon(h.type)}
+                  <span className="text-xs font-medium underline decoration-dotted underline-offset-4">{h.title}</span>
+                </button>
               ))}
              </div>
           </div>
-          <button onClick={() => setVisible(false)} className="text-white/50 hover:text-white p-1 shrink-0 ml-2"><X className="w-4 h-4" /></button>
+          <button onClick={() => setVisible(false)} className="text-white/50 hover:text-white p-1 shrink-0 ml-2">
+            <X className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </>
   );
 };
 
+const InfoCard = ({ item }: { item: any }) => {
+  const [showReason, setShowReason] = useState(false);
+  return (
+    <div 
+      onClick={() => setShowReason(!showReason)}
+      className={`relative p-3 rounded-xl border border-slate-100 bg-white/70 backdrop-blur-md flex flex-col items-center text-center shadow-sm hover:scale-105 transition-all duration-300 h-full justify-center cursor-pointer group ${showReason ? 'ring-2 ring-blue-200' : ''}`}
+    >
+      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"><Info className="w-3 h-3 text-slate-400" /></div>
+      <item.icon className={`w-6 h-6 mb-2 ${item.color}`} />
+      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">{item.title}</span>
+      <span className="text-sm font-bold text-slate-800 leading-tight">{item.value}</span>
+      {showReason && (
+        <div className="absolute inset-0 bg-white/95 rounded-xl p-2 flex items-center justify-center text-center animate-in zoom-in duration-200 z-10">
+          <p className="text-xs text-slate-600 font-medium leading-tight">{item.reason}</p>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const getLifestyleInsights = (data: WeatherData) => {
+  return [
+    { title: "خطر الصداع", value: data.pressure < 1005 ? "مرتفع" : "منخفض", reason: data.pressure < 1005 ? "انخفاض الضغط يضغط على الجيوب الأنفية." : "الضغط مستقر ومريح.", icon: HeartPulse, color: data.pressure < 1005 ? "text-red-500" : "text-green-500" },
+    { title: "نشر الغسيل", value: data.humidity < 60 ? "ممتاز" : "صعب", reason: data.humidity < 60 ? "الجو جاف يساعد على التبخر." : "الرطوبة عالية جداً.", icon: Shirt, color: "text-blue-500" },
+    { title: "سقي النباتات", value: data.soilMoisture < 0.3 ? "اسقِ الآن" : "رطبة", reason: data.soilMoisture < 0.3 ? "معدل التبخر عالٍ." : "التربة تحتفظ بالماء.", icon: Palmtree, color: "text-green-600" },
+    { title: "غسيل السيارة", value: data.rainProb > 30 ? "أجّله" : "مناسب", reason: data.rainProb > 30 ? "احتمال هطول أمطار قريباً." : "الجو مستقر.", icon: Car, color: "text-indigo-500" },
+    { title: "البعوض", value: data.temp > 20 ? "نشط" : "خامل", reason: "يفضل الحرارة والرطوبة.", icon: Bug, color: "text-orange-600" },
+    { title: "النشاط المنزلي", value: data.uvIndex > 7 ? "ابقَ بالداخل" : "اخرج", reason: data.uvIndex > 7 ? "أشعة الشمس خطرة الآن." : "الأجواء آمنة.", icon: HomeIcon, color: "text-rose-500" },
+  ];
+};
+
 const generateStory = (data: WeatherData): string => {
   const { feelsLike, windSpeed, description, uvIndex, humidity } = data;
   let story = "";
   if (feelsLike > 30) story += "الجو حار. "; else if (feelsLike < 10) story += "الجو بارد. "; else story += "الجو معتدل. ";
-  if (humidity > 80) story += "رطوبة عالية. "; if (windSpeed > 30) story += "رياح قوية. "; if (uvIndex > 7) story += "شمس حارقة. ";
+  if (humidity > 80) story += "رطوبة عالية. "; if (windSpeed > 30) story += "رياح قوية. ";
   story += description;
   return story;
 };
@@ -225,7 +217,6 @@ const HiveMindButton = ({ city }: { city: string }) => {
   return (<> <button onClick={() => setIsOpen(!isOpen)} className="fixed bottom-24 left-4 z-[100] bg-indigo-600 text-white p-3 rounded-full shadow-xl hover:scale-110 transition-transform flex items-center gap-2"><Megaphone className="w-6 h-6" />{count > 0 && <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center">{count}</span>}</button>{isOpen && (<div className="fixed bottom-40 left-4 z-[100] bg-white rounded-2xl shadow-2xl p-4 w-64 animate-in zoom-in-95"><div className="flex justify-between mb-3"><h3 className="font-bold text-slate-800 text-sm">حالة الطقس؟</h3><button onClick={() => setIsOpen(false)} className="text-xs text-slate-400">إغلاق</button></div><div className="grid grid-cols-2 gap-2">{['مشمس', 'غائم', 'ممطر', 'عاصف'].map(t => (<button key={t} onClick={() => handleVote(t)} className="p-2 bg-slate-50 rounded-xl hover:bg-slate-100 text-xs font-bold">{t}</button>))}</div></div>)}</>);
 };
 
-// المكون الرئيسي
 const WeatherHero = ({ data, onCityRename }: { data: WeatherData, onCityRename: (n: string) => void }) => {
   const insights = getLifestyleInsights(data);
   return (
@@ -250,11 +241,10 @@ const WeatherHero = ({ data, onCityRename }: { data: WeatherData, onCityRename: 
         </div>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {/* هنا استخدمنا مكوناً خاصاً للبطاقات البسيطة (يمكن دمجها لاحقاً) */}
-        <div className="p-3 rounded-xl border border-amber-100 bg-white/70 backdrop-blur-md flex flex-col items-center text-center"><Sunrise className="w-5 h-5 mb-2 text-amber-500" /><span className="text-[10px] text-slate-400 font-bold mb-1">الشروق</span><span className="text-sm font-bold">{data.sunrise}</span></div>
-        <div className="p-3 rounded-xl border border-orange-100 bg-white/70 backdrop-blur-md flex flex-col items-center text-center"><Sunset className="w-5 h-5 mb-2 text-orange-500" /><span className="text-[10px] text-slate-400 font-bold mb-1">الغروب</span><span className="text-sm font-bold">{data.sunset}</span></div>
-        <div className="p-3 rounded-xl border border-purple-100 bg-white/70 backdrop-blur-md flex flex-col items-center text-center"><Sun className="w-5 h-5 mb-2 text-purple-500" /><span className="text-[10px] text-slate-400 font-bold mb-1">مؤشر UV</span><span className="text-sm font-bold">{data.uvIndex}</span></div>
-        <div className="p-3 rounded-xl border border-emerald-100 bg-white/70 backdrop-blur-md flex flex-col items-center text-center"><Eye className="w-5 h-5 mb-2 text-emerald-500" /><span className="text-[10px] text-slate-400 font-bold mb-1">الرؤية</span><span className="text-sm font-bold">{Math.round(data.visibility / 1000)} كم</span></div>
+        <InfoCard item={{ icon: Sunrise, title: "الشروق", value: data.sunrise, color: "text-amber-500" }} />
+        <InfoCard item={{ icon: Sunset, title: "الغروب", value: data.sunset, color: "text-orange-500" }} />
+        <InfoCard item={{ icon: Sun, title: "مؤشر UV", value: data.uvIndex, color: "text-purple-500" }} />
+        <InfoCard item={{ icon: Eye, title: "الرؤية", value: `${Math.round(data.visibility / 1000)} كم`, color: "text-emerald-500" }} />
       </div>
       <div>
         <h2 className="text-lg font-bold text-slate-700 mb-4 px-2 flex items-center gap-2"><Coffee className="w-5 h-5 text-amber-600" /> دليلك اليومي</h2>
@@ -373,7 +363,7 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen p-4 md:p-8 max-w-5xl mx-auto relative" dir="rtl">
+    <main className="min-h-screen p-4 md:p-8 max-w-5xl mx-auto relative pb-32" dir="rtl">
       <HazardTicker />
       {weather && <HiveMindButton city={weather.city} />}
       <header className="flex justify-between items-center mb-8 relative z-50 mt-4">
