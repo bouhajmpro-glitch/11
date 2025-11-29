@@ -1,9 +1,9 @@
 // app/lab/page.tsx
 'use client';
 
+/* eslint-disable @next/next/no-img-element */
 import React, { useState, useRef, useEffect } from 'react';
 import { Camera, BrainCircuit, Loader2, CheckCircle2, Gauge, Sun, Activity, Compass, Navigation, X } from 'lucide-react';
-/* eslint-disable @next/next/no-img-element */
 import * as tf from '@tensorflow/tfjs';
 import * as mobilenet from '@tensorflow-models/mobilenet';
 
@@ -14,15 +14,13 @@ export default function LabPage() {
   const [model, setModel] = useState<mobilenet.MobileNet | null>(null);
   const [loadingModel, setLoadingModel] = useState(true);
   const imageRef = useRef<HTMLImageElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null); // للكاميرا الحية
+  const videoRef = useRef<HTMLVideoElement>(null);
 
-  // حالات AR والمستشعرات
   const [arMode, setArMode] = useState(false);
   const [orientation, setOrientation] = useState({ alpha: 0, beta: 0, gamma: 0 });
   const [sensorData, setSensorData] = useState({ illuminance: 0 });
   const [sensorsSupported, setSensorsSupported] = useState({ light: false });
 
-  // تشغيل المستشعرات
   useEffect(() => {
     if (typeof window !== 'undefined' && 'AmbientLightSensor' in window) {
       try {
@@ -50,40 +48,36 @@ export default function LabPage() {
     };
   }, []);
 
-  // تشغيل الكاميرا عند تفعيل AR
   useEffect(() => {
-    if (arMode && videoRef.current) {
+    const currentVideo = videoRef.current; // نسخ المرجع للمتغير (لإصلاح تحذير React)
+    if (arMode && currentVideo) {
       navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
         .then(stream => {
-          if (videoRef.current) videoRef.current.srcObject = stream;
+          if (currentVideo) currentVideo.srcObject = stream;
         })
         .catch(err => console.error("فشل فتح الكاميرا", err));
     }
-    // إيقاف الكاميرا عند الخروج
     return () => {
-      if (videoRef.current && videoRef.current.srcObject) {
-        const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
+      if (currentVideo && currentVideo.srcObject) {
+        const tracks = (currentVideo.srcObject as MediaStream).getTracks();
         tracks.forEach(track => track.stop());
       }
     };
   }, [arMode]);
 
-  // تحميل النموذج (مع إدارة ذاكرة أفضل)
   useEffect(() => {
     const load = async () => {
-      await tf.ready(); // تجهيز TensorFlow
-      const m = await mobilenet.load({ version: 2, alpha: 0.5 }); // نسخة أخف (0.5)
+      await tf.ready();
+      const m = await mobilenet.load({ version: 2, alpha: 0.5 });
       setModel(m);
       setLoadingModel(false);
     };
     load();
   }, []);
 
-  // معالجة الصورة (مع ضغط الحجم)
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      // استخدام FileReader لقراءة الملف
       const reader = new FileReader();
       reader.onload = (event) => {
         setImage(event.target?.result as string);
@@ -96,25 +90,14 @@ export default function LabPage() {
   const analyzeImage = async () => {
     if (!model || !imageRef.current) return;
     setAnalyzing(true);
-    
     try {
-      // استخدام tf.tidy لتنظيف الذاكرة فوراً بعد الحساب
-      const predictions = await tf.tidy(() => {
-        return model.classify(imageRef.current as HTMLImageElement);
-      });
-      
-      // إذا كانت بروميس (في النسخ الحديثة)، ننتظرها
-      if (predictions instanceof Promise) {
-         const resolved = await predictions;
-         setResult(resolved);
-      } else {
-         setResult(predictions);
-      }
+      // التصحيح هنا: استخدام مباشر بدون tf.tidy لأن الدالة async
+      const predictions = await model.classify(imageRef.current);
+      setResult(predictions);
     } catch (e) { 
       console.error(e); 
-      alert("حدث خطأ في الذاكرة، حاول استخدام صورة أصغر.");
+      alert("حدث خطأ في التحليل.");
     }
-    
     setAnalyzing(false);
   };
 
@@ -124,22 +107,16 @@ export default function LabPage() {
     return `تعرفنا على: ${className}`;
   };
 
-  // --- واجهة الواقع المعزز (AR View) ---
   if (arMode) {
     return (
       <div className="fixed inset-0 z-[200] bg-black overflow-hidden">
-        {/* الكاميرا الحية كخلفية */}
         <video 
           ref={videoRef} 
           autoPlay 
           playsInline 
           className="absolute inset-0 w-full h-full object-cover opacity-80"
         />
-        
-        {/* طبقة المعلومات (HUD) */}
         <div className="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none">
-          
-          {/* البوصلة */}
           <div 
             className="w-64 h-64 border-4 border-white/50 rounded-full relative flex items-center justify-center transition-transform duration-100 ease-linear shadow-2xl"
             style={{ transform: `rotate(${-orientation.alpha}deg)` }}
@@ -148,27 +125,19 @@ export default function LabPage() {
             <div className="absolute -bottom-8 font-bold text-white drop-shadow-md">S</div>
             <div className="absolute -right-8 font-bold text-white drop-shadow-md">E</div>
             <div className="absolute -left-8 font-bold text-white drop-shadow-md">W</div>
-            
-            {/* خطوط التقاطع */}
             <div className="w-full h-0.5 bg-white/30 absolute"></div>
             <div className="h-full w-0.5 bg-white/30 absolute"></div>
           </div>
-
-          {/* القراءة الرقمية */}
           <div className="mt-12 bg-black/50 backdrop-blur-md px-6 py-3 rounded-2xl border border-white/20 text-center">
             <h2 className="text-3xl font-black text-white">{Math.round(orientation.alpha)}°</h2>
             <p className="text-xs text-blue-200 font-bold">بوصلة الطقس الذكية</p>
           </div>
-
-          {/* تحديد القبلة */}
           {Math.abs(orientation.alpha - 100) < 15 && (
             <div className="mt-4 bg-green-600 text-white px-6 py-2 rounded-full font-bold shadow-lg animate-bounce">
               🕋 اتجاه القبلة
             </div>
           )}
         </div>
-
-        {/* زر الخروج (تفاعلي) */}
         <button 
           onClick={() => setArMode(false)}
           className="absolute bottom-10 left-1/2 -translate-x-1/2 bg-red-600 text-white px-8 py-3 rounded-full font-bold shadow-xl z-20 active:scale-95 transition-transform flex items-center gap-2"
@@ -181,21 +150,8 @@ export default function LabPage() {
 
   return (
     <main className="min-h-screen p-4 pb-24 max-w-xl mx-auto relative space-y-8">
-      
-      <button 
-        onClick={() => setArMode(true)}
-        className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-5 rounded-3xl shadow-xl shadow-indigo-200 flex items-center justify-between hover:scale-[1.02] active:scale-95 transition-all group"
-      >
-        <div className="flex items-center gap-4">
-          <div className="bg-white/20 p-3 rounded-2xl group-hover:rotate-12 transition-transform">
-            <Compass className="w-8 h-8 text-white" />
-          </div>
-          <div className="text-right">
-            <span className="block font-black text-xl">الواقع المعزز (AR)</span>
-            <span className="block text-xs text-indigo-100 font-medium mt-1">افتح الكاميرا لترى الاتجاهات</span>
-          </div>
-        </div>
-        <div className="bg-white/10 px-3 py-1 rounded-lg text-xs font-bold">تجريبي</div>
+      <button onClick={() => setArMode(true)} className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-5 rounded-3xl shadow-xl shadow-indigo-200 flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-95 transition-all">
+        <Compass className="w-6 h-6" /> <span className="font-black text-xl">الواقع المعزز (AR)</span>
       </button>
 
       <section className="animate-in slide-in-from-top duration-500">
@@ -216,19 +172,10 @@ export default function LabPage() {
         </div>
       </section>
 
-      <hr className="border-slate-200" />
-
       <section>
-        <div className="text-center mb-6">
-          <h2 className="text-lg font-bold text-slate-800 flex items-center justify-center gap-2">
-            <BrainCircuit className="w-5 h-5 text-indigo-600" /> محلل السحب
-          </h2>
-        </div>
-
         <div className="bg-white rounded-3xl shadow-lg border border-slate-100 overflow-hidden relative min-h-[250px] flex flex-col items-center justify-center group">
           {image ? (
             <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img ref={imageRef} src={image} alt="Uploaded" className="w-full h-full object-cover max-h-[300px]" />
               {!result.length && !analyzing && (
                 <button onClick={analyzeImage} disabled={loadingModel} className="absolute bottom-6 bg-indigo-600 text-white px-6 py-3 rounded-full shadow-lg font-bold">
@@ -247,7 +194,6 @@ export default function LabPage() {
           <input type="file" accept="image/*" capture="environment" onChange={handleImageUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" disabled={analyzing} />
           {analyzing && <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white"><Loader2 className="w-10 h-10 animate-spin"/></div>}
         </div>
-
         {result.length > 0 && (
           <div className="mt-4 bg-white rounded-2xl shadow-sm border border-slate-100 p-4">
             <h3 className="font-bold text-slate-800 mb-2 text-sm">النتيجة:</h3>
@@ -261,7 +207,6 @@ export default function LabPage() {
           </div>
         )}
       </section>
-
     </main>
   );
 }
