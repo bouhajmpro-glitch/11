@@ -1,16 +1,15 @@
-import { supabase } from '../lib/supabaseClient';
+// app/core/system/logger.ts
+import { supabase } from '../lib/supabaseClient'; 
 
 export async function logSystemError(source: string, error: any) {
-  console.error(`[${source}] Failed:`, error);
-  
-  // إرسال التقرير للسحابة (بشكل خفي)
+  console.error(`[SYSTEM FAULT] ${source}:`, error);
   try {
-    await supabase.from('system_logs').insert([{
-      source: source,
-      error_message: String(error),
-      timestamp: new Date().toISOString()
+    await supabase.from('system_logs').insert([{ 
+      source, 
+      error: String(error),
+      created_at: new Date().toISOString()
     }]);
   } catch (e) {
-    // حتى لو فشل التبليغ، لا نوقف التطبيق
+    // Fail silently
   }
 }
