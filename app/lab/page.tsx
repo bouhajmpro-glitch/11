@@ -3,7 +3,8 @@
 
 /* eslint-disable @next/next/no-img-element */
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, BrainCircuit, Loader2, CheckCircle2, Activity, Compass, Navigation, X, Wind, RotateCw, AlertTriangle, Infinity } from 'lucide-react';
+// تم إضافة Sun و Gauge للقائمة لضمان عدم حدوث خطأ
+import { Camera, BrainCircuit, Loader2, CheckCircle2, Activity, Compass, Navigation, X, Wind, RotateCw, Sun, Gauge } from 'lucide-react';
 import * as tf from '@tensorflow/tfjs';
 import * as mobilenet from '@tensorflow-models/mobilenet';
 import { getWeather, getLocationByIP } from '../weather';
@@ -13,55 +14,59 @@ export default function LabPage() {
   const [analyzing, setAnalyzing] = useState(false);
   const [result, setResult] = useState<any[]>([]);
   const [model, setModel] = useState<mobilenet.MobileNet | null>(null);
-  const [modelStatus, setModelStatus] = useState<'init' | 'loading' | 'ready' | 'error'>('init');
+  const [loadingModel, setLoadingModel] = useState(true);
   const imageRef = useRef<HTMLImageElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  // حالات AR
   const [arMode, setArMode] = useState(false);
-  const [orientation, setOrientation] = useState({ alpha: 0, absolute: false });
+  const [orientation, setOrientation] = useState({ alpha: 0, beta: 0, gamma: 0 });
   const [windData, setWindData] = useState({ speed: 0, direction: 0 });
-  const [showCalibration, setShowCalibration] = useState(false);
+  const [sensorData, setSensorData] = useState({ illuminance: 0 });
+  const [sensorsSupported, setSensorsSupported] = useState({ light: false });
 
+  // 1. تحميل النموذج (بسيط ومستقر)
   useEffect(() => {
-    const loadAdaptiveModel = async () => {
-      setModelStatus('loading');
+    const load = async () => {
       try {
         await tf.ready();
-        const cores = navigator.hardwareConcurrency || 4;
-        const isHighEnd = cores >= 6; 
-        console.log(`Device Cores: ${cores}. Loading ${isHighEnd ? 'Pro' : 'Lite'} Model.`);
-        const m = await mobilenet.load({ version: 2, alpha: isHighEnd ? 1.0 : 0.50 });
+        const m = await mobilenet.load({ version: 2, alpha: 0.50 });
         setModel(m);
-        setModelStatus('ready');
-      } catch (e) {
-        console.error(e);
-        setModelStatus('error');
-      }
+        setLoadingModel(false);
+      } catch (e) { console.error(e); }
     };
-    loadAdaptiveModel();
+    load();
   }, []);
 
+  // 2. المستشعرات
   useEffect(() => {
+    if (typeof window !== 'undefined' && 'AmbientLightSensor' in window) {
+      try {
+        // @ts-ignore
+        const sensor = new AmbientLightSensor();
+        sensor.addEventListener('reading', () => setSensorData(prev => ({ ...prev, illuminance: sensor.illuminance })));
+        sensor.start();
+        setSensorsSupported(prev => ({ ...prev, light: true }));
+      } catch (err) {}
+    }
+
     const handleOrientation = (event: DeviceOrientationEvent) => {
-      // @ts-ignore
-      const compass = event.webkitCompassHeading || Math.abs(360 - (event.alpha || 0));
-      // @ts-ignore
-      const isAbsolute = event.absolute || !!event.webkitCompassHeading;
-      setOrientation({ alpha: compass, absolute: isAbsolute });
-      if (!isAbsolute) setShowCalibration(true);
-      else setShowCalibration(false);
+      setOrientation({ 
+        alpha: event.alpha || 0, 
+        beta: event.beta || 0, 
+        gamma: event.gamma || 0 
+      });
     };
 
     if (typeof window !== 'undefined' && window.DeviceOrientationEvent) {
       window.addEventListener('deviceorientation', handleOrientation);
     }
-    const timer = setTimeout(() => setShowCalibration(false), 8000);
     return () => {
       if (typeof window !== 'undefined') window.removeEventListener('deviceorientation', handleOrientation);
-      clearTimeout(timer);
     };
   }, []);
 
+  // 3. بيانات الرياح
   useEffect(() => {
     const fetchWind = async () => {
       const loc = await getLocationByIP();
@@ -73,18 +78,28 @@ export default function LabPage() {
     fetchWind();
   }, []);
 
+  // 4. الكاميرا
   useEffect(() => {
     const currentVideo = videoRef.current;
     if (arMode && currentVideo) {
-      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }).then(s => { if (currentVideo) currentVideo.srcObject = s; }).catch(e => console.error(e));
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+        .then(stream => { if (currentVideo) currentVideo.srcObject = stream; })
+        .catch(err => console.error(err));
     }
-    return () => { if (currentVideo && currentVideo.srcObject) (currentVideo.srcObject as MediaStream).getTracks().forEach(t => t.stop()); };
+    return () => {
+      if (currentVideo && currentVideo.srcObject) {
+        (currentVideo.srcObject as MediaStream).getTracks().forEach(t => t.stop());
+      }
+    };
   }, [arMode]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const reader = new FileReader();
-      reader.onload = (ev) => { setImage(ev.target?.result as string); setResult([]); };
+      reader.onload = (ev) => {
+        setImage(ev.target?.result as string);
+        setResult([]);
+      };
       reader.readAsDataURL(e.target.files[0]);
     }
   };
@@ -96,7 +111,7 @@ export default function LabPage() {
       await new Promise(r => setTimeout(r, 100));
       const predictions = await model.classify(imageRef.current);
       setResult(predictions);
-    } catch (e) { alert("خطأ."); }
+    } catch (e) { alert("خطأ في التحليل."); }
     setAnalyzing(false);
   };
 
@@ -111,17 +126,6 @@ export default function LabPage() {
       <div className="fixed inset-0 z-[200] bg-black overflow-hidden">
         <video ref={videoRef} autoPlay playsInline className="absolute inset-0 w-full h-full object-cover opacity-80" />
         
-        {/* تم تصحيح النص هنا لإزالة علامات التنصيص */}
-        {showCalibration && (
-          <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-black/70 backdrop-blur text-white p-4 rounded-2xl flex flex-col items-center gap-2 animate-in zoom-in duration-300 border border-yellow-500/50 w-64 text-center z-50">
-            <div className="relative w-16 h-8"><Infinity className="w-16 h-8 text-yellow-400 animate-pulse" /></div>
-            <div className="text-xs font-medium">
-              <span className="block font-bold text-yellow-400 text-sm mb-1">معايرة مطلوبة</span>
-              حرك الهاتف في الهواء برسم رقم 8 لتحسين الدقة.
-            </div>
-          </div>
-        )}
-
         <div className="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none">
           <div className="w-64 h-64 border-4 border-white/30 rounded-full relative flex items-center justify-center transition-transform duration-100 ease-linear shadow-2xl" style={{ transform: `rotate(${-orientation.alpha}deg)` }}>
             <div className="absolute -top-8 font-black text-red-500 text-2xl">N</div>
@@ -133,7 +137,7 @@ export default function LabPage() {
           </div>
           <div className="mt-16 bg-black/60 backdrop-blur-md px-6 py-3 rounded-2xl border border-white/20 text-center">
             <h2 className="text-3xl font-black text-white">{Math.round(orientation.alpha)}°</h2>
-            <p className="text-xs text-blue-200 font-bold">{orientation.absolute ? "شمال حقيقي (GPS)" : "شمال مغناطيسي"}</p>
+            <p className="text-xs text-blue-200 font-bold">بوصلة الطقس</p>
           </div>
         </div>
         <button onClick={() => setArMode(false)} className="absolute bottom-10 left-1/2 -translate-x-1/2 bg-red-600 text-white px-8 py-3 rounded-full font-bold shadow-xl z-20 active:scale-95">خروج</button>
@@ -144,16 +148,14 @@ export default function LabPage() {
   return (
     <main className="min-h-screen p-4 pb-24 max-w-xl mx-auto relative space-y-8">
       <button onClick={() => setArMode(true)} className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-5 rounded-3xl shadow-xl flex items-center justify-center gap-3"><Compass className="w-6 h-6" /> <span className="font-black text-xl">الواقع المعزز (AR)</span></button>
+      
       <section className="animate-in slide-in-from-top duration-500">
         <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><Activity className="w-5 h-5 text-red-500" /> المستشعرات</h2>
-        {/* ... نفس كود المستشعرات السابق ... (إذا كنت بحاجة لبقية الكود أخبرني) */}
-        {/* سأكمل لك الكود لكي تنسخه مرة واحدة: */}
         <div className="grid grid-cols-2 gap-3">
           <div className="p-4 rounded-2xl border border-yellow-200 bg-yellow-50 flex flex-col items-center text-center">
             <Sun className="w-6 h-6 mb-2 text-yellow-500" />
             <span className="text-xs text-slate-500 font-bold">الإضاءة</span>
-            {/* هنا سنترك القيمة -- لأن المستشعر يحتاج تفعيل */}
-            <span className="text-xl font-black text-slate-800">--</span>
+            <span className="text-xl font-black text-slate-800">{sensorsSupported.light ? Math.round(sensorData.illuminance) : "--"}</span>
           </div>
           <div className="p-4 rounded-2xl border border-blue-200 bg-blue-50 flex flex-col items-center text-center">
             <Navigation className="w-6 h-6 mb-2 text-blue-500" style={{ transform: `rotate(${orientation.alpha}deg)` }} />
@@ -170,13 +172,13 @@ export default function LabPage() {
               <img ref={imageRef} src={image} alt="Uploaded" className="w-full h-full object-cover max-h-[300px]" />
               <label className="absolute top-4 right-4 bg-black/50 text-white p-2 rounded-full cursor-pointer z-20"><RotateCw className="w-4 h-4" /><input type="file" accept="image/*" capture="environment" onChange={handleImageUpload} className="hidden" disabled={analyzing} /></label>
               {!result.length && !analyzing && (
-                <button onClick={analyzeImage} disabled={modelStatus !== 'ready'} className={`absolute bottom-6 px-6 py-3 rounded-full shadow-lg font-bold z-30 transition-all ${modelStatus === 'ready' ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>
-                  {modelStatus === 'ready' ? "تحليل الصورة" : (modelStatus === 'error' ? "فشل النموذج" : "جاري تجهيز العقل...")}
+                <button onClick={analyzeImage} disabled={loadingModel} className="absolute bottom-6 bg-indigo-600 text-white px-6 py-3 rounded-full shadow-lg font-bold z-30">
+                  {loadingModel ? "انتظر..." : "تحليل الصورة"}
                 </button>
               )}
             </>
           ) : (
-            <label className="cursor-pointer w-full h-full flex flex-col items-center justify-center p-8"><Camera className="w-8 h-8 text-slate-400 mb-4" /><p className="text-slate-400 font-medium text-sm">التقط صورة</p><input type="file" accept="image/*" capture="environment" onChange={handleImageUpload} className="hidden" disabled={analyzing} /></label>
+            <label className="cursor-pointer w-full h-full flex flex-col items-center justify-center p-8"><Camera className="w-8 h-8 text-slate-400 mb-4" /><p className="text-slate-400 font-medium text-sm">التقط صورة للسماء</p><input type="file" accept="image/*" capture="environment" onChange={handleImageUpload} className="hidden" disabled={analyzing} /></label>
           )}
           {analyzing && <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white z-40"><Loader2 className="w-10 h-10 animate-spin"/></div>}
         </div>
