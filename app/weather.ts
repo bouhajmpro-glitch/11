@@ -4,9 +4,9 @@ export interface HourlyData {
   time: string[];
   temp: number[];
   weatherCode: number[];
-  rain: number[];        // احتمالية المطر (%)
-  wind: number[];        // سرعة الرياح (km/h)
-  uvIndex: number[];     // مؤشر الأشعة فوق البنفسجية
+  rain: number[];        // احتمالية المطر
+  wind: number[];        // سرعة الرياح
+  uvIndex: number[];     // UV
   soilMoisture: number[]; // رطوبة التربة
 }
 
@@ -49,6 +49,7 @@ export interface CityResult {
 }
 
 const formatTime = (isoString: string) => {
+  if (!isoString) return "--:--";
   return new Date(isoString).toLocaleTimeString('ar-MA', { hour: '2-digit', minute: '2-digit' });
 };
 
@@ -96,22 +97,22 @@ export async function getWeather(lat: number, lon: number, cityName: string): Pr
       rainProb: current.precipitation_probability || 0,
       soilMoisture: hourly.soil_moisture_0_to_1cm[currentHour] || 0.3,
       evapotranspiration: daily.et0_fao_evapotranspiration[0] || 0,
-      moonPhase: "هلال", // قيمة افتراضية
+      moonPhase: "هلال",
       
-      // تجميع البيانات الساعية بدقة
+      // تجميع البيانات الساعية بدقة (مع حماية المصفوفات)
       hourly: {
         time: hourly.time.slice(currentHour, currentHour + 24),
         temp: hourly.temperature_2m.slice(currentHour, currentHour + 24),
         weatherCode: hourly.weather_code.slice(currentHour, currentHour + 24),
-        rain: hourly.precipitation_probability.slice(currentHour, currentHour + 24),
-        wind: hourly.wind_speed_10m.slice(currentHour, currentHour + 24),
-        uvIndex: hourly.uv_index ? hourly.uv_index.slice(currentHour, currentHour + 24) : new Array(24).fill(0), // حماية إذا لم يتوفر UV ساعي
-        soilMoisture: hourly.soil_moisture_0_to_1cm.slice(currentHour, currentHour + 24)
+        rain: hourly.precipitation_probability ? hourly.precipitation_probability.slice(currentHour, currentHour + 24) : [],
+        wind: hourly.wind_speed_10m ? hourly.wind_speed_10m.slice(currentHour, currentHour + 24) : [],
+        uvIndex: hourly.uv_index ? hourly.uv_index.slice(currentHour, currentHour + 24) : [],
+        soilMoisture: hourly.soil_moisture_0_to_1cm ? hourly.soil_moisture_0_to_1cm.slice(currentHour, currentHour + 24) : []
       }
     };
 
   } catch (error) {
-    // كائن الأمان (Fallback Object)
+    // كائن الأمان
     return {
       temp: 0, feelsLike: 0, humidity: 0, windSpeed: 0, windGusts: 0, pressure: 0,
       description: "غير متاح", isDay: true, city: "غير معروف",
@@ -122,7 +123,7 @@ export async function getWeather(lat: number, lon: number, cityName: string): Pr
   }
 }
 
-// دوال البحث والموقع (كما هي)
+// دوال المساعدة (البحث، IP، الاسم)
 export async function searchCities(query: string): Promise<CityResult[]> {
   if (query.length < 2) return [];
   try { const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${query}&count=5&language=ar&format=json`); const d = await r.json(); if (!d.results) return []; return d.results.map((c: any) => ({ id: c.id, name: c.name, latitude: c.latitude, longitude: c.longitude, country: c.country || '' })); } catch (e) { return []; }

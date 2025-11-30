@@ -1,9 +1,7 @@
-// app/components/HazardTicker.tsx
 'use client';
-
 import React, { useState, useEffect } from 'react';
 import { Activity, Rocket, Microscope, Globe, Volume2, StopCircle, Radio, X } from 'lucide-react';
-import { getGlobalHazards, Hazard } from '../hazards'; // تأكد من المسار '../hazards' حسب مكان الملف
+import { getGlobalHazards, Hazard } from '../hazards';
 
 const NewsModal = ({ hazard, onClose }: { hazard: Hazard, onClose: () => void }) => (
   <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
@@ -32,33 +30,21 @@ export default function HazardTicker() {
     window.speechSynthesis.speak(u);
   };
 
-  // تحديد الأيقونة (تصحيح الخطأ هنا)
   const Icon = isPlaying ? StopCircle : Volume2;
 
   return (
     <>
       {selected && <NewsModal hazard={selected} onClose={() => setSelected(null)} />}
-      <div className="bg-slate-900 text-white p-2 relative z-50 border-b border-white/10">
+      <div className="bg-slate-900 text-white p-2 relative z-50 border-b border-white/10 overflow-hidden">
         <div className="flex justify-between items-center gap-3">
-          
-          {/* الزر المصحح */}
-          <button onClick={speak} className="p-1 hover:bg-white/10 rounded-full">
-            <Icon className="w-4 h-4" />
-          </button>
-
+          <button onClick={speak}><Icon className="w-4 h-4" /></button>
           <div className="flex-1 overflow-hidden flex h-6 relative">
-             <div className="absolute right-0 z-10 bg-slate-900 pl-2 flex items-center text-xs font-bold text-red-400">
-               <Radio className="w-3 h-3 inline ml-1"/> موجز
-             </div>
+             <div className="absolute right-0 z-10 bg-slate-900 pl-2"><Radio className="w-3 h-3 inline ml-1"/> موجز</div>
              <div className="flex gap-8 animate-marquee whitespace-nowrap pr-16 items-center">
-               {hazards.map(h => (
-                 <button key={h.id} onClick={() => setSelected(h)} className="text-xs hover:text-blue-300 transition-colors flex items-center gap-1">
-                   <span>•</span> {h.title}
-                 </button>
-               ))}
+               {hazards.map(h => <button key={h.id} onClick={() => setSelected(h)} className="text-xs hover:underline">{h.title}</button>)}
              </div>
           </div>
-          <button onClick={() => setVisible(false)}><X className="w-4 h-4 text-slate-500 hover:text-white" /></button>
+          <button onClick={() => setVisible(false)}><X className="w-4 h-4" /></button>
         </div>
       </div>
     </>
