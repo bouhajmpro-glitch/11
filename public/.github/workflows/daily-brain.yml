@@ -1,0 +1,30 @@
+name: The Weather Brain 🧠
+
+on:
+  schedule:
+    - cron: '0 */6 * * *' # تشغيل كل 6 ساعات
+  workflow_dispatch: # يسمح لك بتشغيله يدوياً بضغط زر
+
+jobs:
+  think-and-update:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+
+    - name: Run The Brain Script
+      run: node scripts/brain.js
+
+    - name: Commit and Push Changes
+      run: |
+        git config --global user.name 'Weather Bot 🤖'
+        git config --global user.email 'bot@sentient-sky.app'
+        git add public/brain-data.json
+        git commit -m "🧠 Brain updated the data" || echo "No changes to commit"
+        git push
