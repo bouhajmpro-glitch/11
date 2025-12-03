@@ -3,20 +3,23 @@
 
 import React, { useState, useEffect } from 'react';
 import { User, Trash2, Shield, Bell, Moon, Server, Download, Check, RefreshCw, Database, Brain, Map as MapIcon } from 'lucide-react';
+// استيراد الأدوات والأنواع
 import { initToolsEngine, getAllTools, loadTool } from '../core/engine/tool_loader';
+import { ToolDef } from '../core/config/tools_registry';
 
 // --- مكون لوحة الأدوات (ToolsDashboard) ---
-// (تم دمجه هنا لضمان العمل المباشر)
 const ToolsDashboard = () => {
-  const [tools, setTools] = useState<any[]>([]);
+  const [tools, setTools] = useState<ToolDef[]>([]);
   const [active, setActive] = useState<Set<string>>(new Set());
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const boot = async () => {
-      await initToolsEngine();
-      setTools(getAllTools());
+      await initToolsEngine(); // محاولة الاتصال بالسحابة
+      // هنا السر: جلب القائمة الكاملة (التي تتضمن الـ 50+ أداة احتياطية)
+      const all = getAllTools(); 
+      setTools(all);
       setLoading(false);
     };
     boot();
@@ -40,13 +43,13 @@ const ToolsDashboard = () => {
   return (
     <div className="bg-slate-900 text-white p-6 rounded-3xl border border-white/10 mt-8 shadow-2xl animate-in slide-in-from-bottom">
       <div className="flex justify-between items-center mb-6 border-b border-white/10 pb-4">
-        <h2 className="text-lg font-bold flex items-center gap-2"><Server className="w-5 h-5 text-blue-500"/> مخزن الأدوات الذكي</h2>
+        <h2 className="text-lg font-bold flex items-center gap-2"><Server className="w-5 h-5 text-blue-500"/> مخزن الأدوات الشامل</h2>
         <span className="text-[10px] bg-blue-900/50 text-blue-200 px-3 py-1 rounded-full border border-blue-500/30">{tools.length} أداة</span>
       </div>
 
       {loading && <div className="text-center py-10 text-slate-500"><RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2"/> جاري استكشاف الموارد...</div>}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 h-64 overflow-y-auto pr-2 custom-scrollbar">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 h-96 overflow-y-auto pr-2 custom-scrollbar">
         {tools.map((t) => (
           <button 
             key={t.id}
@@ -63,28 +66,22 @@ const ToolsDashboard = () => {
                 {getIcon(t.category)}
               </div>
               <div className="text-right overflow-hidden">
-                <h3 className="font-bold text-xs truncate w-24">{t.name}</h3>
+                <h3 className="font-bold text-xs truncate w-32">{t.name}</h3>
                 <p className="text-[9px] text-slate-400 truncate">{t.category.toUpperCase()}</p>
               </div>
             </div>
-            
             <div className="pl-2">
               {active.has(t.id) ? <Check className="w-4 h-4 text-green-500"/> : <Download className="w-4 h-4 text-slate-500 group-hover:text-white"/>}
             </div>
           </button>
         ))}
       </div>
-      
-      {status && (
-        <div className="mt-4 bg-blue-500/10 border border-blue-500/20 p-2 rounded-lg text-center text-xs text-blue-300 animate-pulse">
-          {status}
-        </div>
-      )}
+      {status && <div className="mt-4 bg-blue-500/10 border border-blue-500/20 p-2 rounded-lg text-center text-xs text-blue-300 animate-pulse">{status}</div>}
     </div>
   );
 };
 
-// --- الصفحة الرئيسية للإعدادات (الكود الأصلي المحفوظ) ---
+// --- باقي الصفحة (الإعدادات العادية) ---
 export default function SettingsPage() {
   const [name, setName] = useState('');
   const [notifications, setNotifications] = useState(false);
@@ -125,7 +122,7 @@ export default function SettingsPage() {
       <h1 className="text-3xl font-bold text-slate-800 mb-8 mt-4">الإعدادات</h1>
 
       <div className="space-y-6">
-        {/* 1. الشخصية */}
+        {/* 1. الملف الشخصي */}
         <section>
           <h2 className="text-sm font-bold text-slate-400 mb-3 px-1">الملف الشخصي</h2>
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 flex items-center gap-4">
@@ -152,7 +149,7 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        {/* 3. لوحة الأدوات الذكية (المدمجة) */}
+        {/* 3. لوحة الأدوات الكاملة */}
         <ToolsDashboard />
 
         {/* 4. الخطر */}
