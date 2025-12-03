@@ -39,9 +39,18 @@ export async function initToolsEngine() {
 /**
  * 2. وظيفة الاسترجاع
  */
+// في app/core/engine/tool_loader.ts
+
 export function getAllTools(): ToolDef[] {
-  return DYNAMIC_REGISTRY.length > 0 ? DYNAMIC_REGISTRY : FALLBACK_TOOLS;
+  // الدمج الإجباري: نأخذ كل ما في الاحتياطي + كل ما جاء من السحابة
+  // ونزيل التكرار باستخدام Map بناءً على الـ ID
+  const combined = [...FALLBACK_TOOLS, ...DYNAMIC_REGISTRY];
+  
+  const uniqueTools = Array.from(new Map(combined.map(item => [item.id, item])).values());
+  
+  return uniqueTools;
 }
+
 
 /**
  * 3. وظيفة التحميل الذكي
