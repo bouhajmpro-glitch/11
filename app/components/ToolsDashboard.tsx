@@ -42,7 +42,7 @@ export default function ToolsDashboard() {
 
       {loading && <div className="text-center py-10 text-slate-500"><RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2"/> جاري استكشاف الموارد...</div>}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 h-64 overflow-y-auto pr-2 custom-scrollbar">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 h-[500px] overflow-y-auto pr-2 custom-scrollbar">
         {tools.map((t) => (
           <button 
             key={t.id}
