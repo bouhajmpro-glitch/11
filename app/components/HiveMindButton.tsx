@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { Megaphone, ThumbsUp } from 'lucide-react';
-import { supabase } from '../lib/supabaseClient'; // تأكد من المسار
+import { supabase } from '../lib/supabaseClient';
 
 export default function HiveMindButton({ city }: { city: string }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -9,12 +9,11 @@ export default function HiveMindButton({ city }: { city: string }) {
   const [count, setCount] = useState(0);
 
   useEffect(() => {
-    // (نفس منطق الجلب السابق)
-    const f = async () => { const { count: c } = await supabase.from('weather_reports').select('*', { count: 'exact', head: true }).eq('city', city); if(c) setCount(c); };
+    const f = async () => { try { const { count: c } = await supabase.from('weather_reports').select('*', { count: 'exact', head: true }).eq('city', city); if(c) setCount(c); } catch {} };
     f();
   }, [city]);
 
-  const h = async (t: string) => { setVoted(true); setIsOpen(false); await supabase.from('weather_reports').insert([{ city, condition: t }]); };
+  const h = async (t: string) => { setVoted(true); setIsOpen(false); try { await supabase.from('weather_reports').insert([{ city, condition: t }]); } catch {} };
 
   if (voted) return <div className="fixed bottom-24 left-4 z-50 bg-green-600 text-white px-4 py-2 rounded-full shadow-lg text-xs">تم الإبلاغ!</div>;
 

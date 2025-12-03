@@ -1,0 +1,31 @@
+{
+    "version": "1.0",
+    "last_update": "2025-02-25",
+    "tools": [
+      {
+        "id": "leaflet",
+        "name": "Leaflet Maps",
+        "category": "map",
+        "url": "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
+        "type": "script",
+        "globalVar": "L"
+      },
+      {
+        "id": "tfjs",
+        "name": "TensorFlow AI",
+        "category": "ai",
+        "url": "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs",
+        "type": "script",
+        "globalVar": "tf"
+      },
+      {
+        "id": "nasa-gibs",
+        "name": "NASA GIBS",
+        "category": "space",
+        "url": "https://gibs.earthdata.nasa.gov",
+        "type": "api_endpoint"
+      }
+      // ... (الروبوت سيضيف الـ 150 أداة هنا تلقائياً)
+    ]
+  }
+  

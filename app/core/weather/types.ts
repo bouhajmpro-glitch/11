@@ -1,35 +1,83 @@
+// app/core/weather/types.ts
+
 export interface HourlyData {
   time: string[];
   temp: number[];
-  weatherCode: number[];
-  rain: number[];
-  wind: number[];
+  feelsLike: number[];
+  pressure: number[];
+  humidity: number[];
+  dewPoint: number[];
   uvIndex: number[];
+  cloudCover: number[];
+  visibility: number[];
+  windSpeed: number[];
+  windDir: number[];
+  windGusts: number[];
+  rain: number[];        // احتمالية المطر
+  rainAmount: number[];  // كمية المطر
+  snowDepth: number[];
+  snowFall: number[];
+  weatherCode: number[];
   soilMoisture: number[];
+  soilTemp: number[];
+}
+
+export interface DailyData {
+  time: string[];
+  sunrise: string[];
+  sunset: string[];
+  uvIndexMax: number[];
+  rainSum: number[];
+  snowSum: number[];
+  maxTemp: number[];
+  minTemp: number[];
 }
 
 export interface WeatherData {
+  // --- الأساسيات (Current) ---
   temp: number;
   feelsLike: number;
   humidity: number;
+  pressure: number;
+  pressureSealevel: number;
   windSpeed: number;
   windGusts: number;
-  pressure: number;
+  windDir: number;
   description: string;
   weatherCode: number;
   isDay: boolean;
   city: string;
+  country: string;
+  
+  // --- الفلك (Astronomy) ---
   sunrise: string;
   sunset: string;
+  moonPhase: string;
+  dayLength: number;
+
+  // --- البيئة والصحة (Bio) ---
   uvIndex: number;
   visibility: number;
-  cloudCover: number;
   dewPoint: number;
-  moonPhase: string;
-  rainProb: number;
+  airQuality: number; // AQI
+  pollen: number;
+  
+  // --- الزراعة (Agro) ---
   soilMoisture: number;
+  soilTemp: number;
   evapotranspiration: number;
+  leafWetness: number;
+
+  // --- المخاطر (Hazards) ---
+  rainProb: number;
+  rainAmount: number;
+  snowDepth: number;
+  freezingRain: boolean;
+  cape: number; // طاقة الحمل الحراري للعواصف
+
+  // --- البيانات الساعية واليومية ---
   hourly: HourlyData;
+  daily: DailyData;
 }
 
 export interface CityResult {
@@ -38,4 +86,5 @@ export interface CityResult {
   latitude: number;
   longitude: number;
   country: string;
+  timezone: string;
 }

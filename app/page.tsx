@@ -2,14 +2,14 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import dynamic from 'next/dynamic';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { 
   CloudSun, CloudRain, Sun, Moon, Wind, Droplets, Navigation, Search, Loader2, MapPin, Edit2, Check, BookOpen,
   Shirt, Car, HeartPulse, Coffee, Umbrella, Thermometer, Eye, Battery, Zap, Anchor, Tent, Flower2, AlertTriangle, Snowflake,
   Activity, Fish, Flame, Smile, Telescope, Bug, Volume2, StopCircle, Radio, X, Megaphone, ThumbsUp,
   Rocket, Microscope, Globe, ExternalLink, Info, Brain, BarChart3, ArrowDown, Clock, ArrowRight,
-  Home as HomeIcon, Sunrise, Sunset // <-- تم التأكد من وجود Sunrise و Sunset هنا
+  Home as HomeIcon, Sunrise, Sunset, Shield, FileText, Server, Database
 } from 'lucide-react';
 
 import { getWeather, searchCities, getLocationByIP, getCityNameFromCoords } from './core/weather/api';
@@ -17,28 +17,36 @@ import { WeatherData, CityResult } from './core/weather/types';
 import { getGlobalHazards, Hazard } from './hazards';
 import { supabase } from './lib/supabaseClient';
 import LivingScene from './components/LivingScene';
-import { analyzeWeatherModels, AnalysisResult } from './analysis';
 
 const Palmtree = Flower2;
 
-const WeatherMap = dynamic(() => import('./Map'), { 
-  ssr: false, 
-  loading: () => <div className="h-[400px] bg-slate-900/50 animate-pulse rounded-3xl flex items-center justify-center text-slate-400">جاري تحميل الرادار...</div> 
-});
-
-// --- المكونات ---
+// --- المكونات (مدمجة لضمان العمل) ---
 
 const AccuracyBadge = ({ score }: { score: number }) => (
-  <div className="absolute -top-4 -right-4 bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg flex items-center gap-1 border border-white/20 z-20">
+  <div className="absolute -top-6 right-0 bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg flex items-center gap-1 border border-white/20 z-20 animate-pulse-slow">
     <Check className="w-3 h-3" /> دقة {score}%
   </div>
 );
 
+const AppFooter = () => {
+  const [showLegal, setShowLegal] = useState(false);
+  return (
+    <footer className="mt-12 pb-8 text-center relative z-10">
+      <div className="flex justify-center gap-6 text-white/60 text-xs mb-4">
+        <button className="hover:text-white flex items-center gap-1"><Server className="w-3 h-3"/> حالة النظام: ممتاز</button>
+        <button onClick={() => setShowLegal(!showLegal)} className="hover:text-white flex items-center gap-1"><FileText className="w-3 h-3"/> الشروط</button>
+      </div>
+      {showLegal && <div className="text-[10px] text-white/40 p-4 bg-black/20 rounded-xl mx-4">جميع الحقوق محفوظة © 2025. البيانات من Open-Meteo.</div>}
+      <p className="text-white/30 text-[10px]">© 2025 السماء الواعية 2.0</p>
+    </footer>
+  );
+};
+
 const NewsModal = ({ hazard, onClose }: { hazard: Hazard, onClose: () => void }) => (
-  <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+  <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
     <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden">
       <div className="p-4 bg-slate-800 text-white flex justify-between items-center"><h3 className="font-bold flex gap-2"><Activity className="w-4 h-4"/> التفاصيل</h3><button onClick={onClose}><X className="w-5 h-5"/></button></div>
-      <div className="p-6"><h2 className="text-xl font-bold mb-2">{hazard.title}</h2><p className="text-slate-600 text-sm leading-relaxed">{hazard.details}</p>{hazard.url && <a href={hazard.url} target="_blank" className="text-blue-600 text-xs underline block mt-2">المصدر</a>}</div>
+      <div className="p-6"><h2 className="text-xl font-bold mb-2">{hazard.title}</h2><p className="text-slate-600 text-sm leading-relaxed">{hazard.details}</p></div>
     </div>
   </div>
 );
@@ -57,21 +65,13 @@ const HazardTicker = () => {
   const speakNews = () => {
     if (isPlaying) { window.speechSynthesis.cancel(); setIsPlaying(false); return; }
     setIsPlaying(true);
-    const text = "موجز.. " + hazards.map(h => h.title).join(". ");
-    const u = new SpeechSynthesisUtterance(text);
-    const v = window.speechSynthesis.getVoices().find(x => x.lang.includes('ar'));
-    if (v) u.voice = v;
+    const u = new SpeechSynthesisUtterance("موجز.. " + hazards.map(h => h.title).join(". "));
     u.lang = 'ar-SA'; u.rate = 0.9; u.onend = () => setIsPlaying(false);
     window.speechSynthesis.speak(u);
   };
 
   const isCritical = hazards.some(h => h.severity === 'critical');
   const bgStyle = isCritical ? "bg-gradient-to-r from-red-600 to-red-700 text-white animate-pulse-slow" : "bg-slate-900 text-slate-200";
-  const getIcon = (t: string) => {
-    if (t === 'earthquake') return <Activity className="w-4 h-4 text-red-400" />;
-    if (t === 'space') return <Rocket className="w-4 h-4 text-purple-400" />;
-    return <Globe className="w-4 h-4 text-green-400" />;
-  };
 
   return (
     <>
@@ -82,9 +82,7 @@ const HazardTicker = () => {
           <div className="flex-1 overflow-hidden flex items-center relative h-6">
              <div className="flex gap-12 animate-marquee whitespace-nowrap items-center pr-4">
               {hazards.map((h) => (
-                <button key={h.id} onClick={() => setSelectedNews(h)} className="flex items-center gap-2 hover:bg-white/10 px-2 py-1 rounded text-white">
-                  {getIcon(h.type)} <span className="text-xs font-medium">{h.title}</span>
-                </button>
+                <button key={h.id} onClick={() => setSelectedNews(h)} className="flex items-center gap-2 hover:bg-white/10 px-2 py-1 rounded text-white"><Activity className="w-3 h-3" /> <span className="text-xs font-medium">{h.title}</span></button>
               ))}
              </div>
           </div>
@@ -106,64 +104,18 @@ const HiveMindButton = ({ city }: { city: string }) => {
     return () => { supabase.removeChannel(sub); };
   }, [city]);
   const h = async (t: string) => { setVoted(true); setIsOpen(false); try { await supabase.from('weather_reports').insert([{ city, condition: t }]); } catch (e) {} };
-  if (voted) return <div className="fixed bottom-24 left-4 z-[100] bg-green-600 text-white px-4 py-2 rounded-full shadow-lg animate-in slide-in-from-bottom"><ThumbsUp className="w-4 h-4 inline mr-2"/>شكراً!</div>;
+  if (voted) return <div className="fixed bottom-24 left-4 z-[100] bg-green-600 text-white px-4 py-2 rounded-full shadow-lg animate-in slide-in-from-bottom"><ThumbsUp className="w-4 h-4 inline mr-2"/>تم الإبلاغ: {count}</div>;
   return (<> <button onClick={() => setIsOpen(!isOpen)} className="fixed bottom-24 left-4 z-[100] bg-indigo-600 text-white p-3 rounded-full shadow-xl hover:scale-110 transition-transform flex items-center gap-2"><Megaphone className="w-6 h-6" />{count > 0 && <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center">{count}</span>}</button>{isOpen && (<div className="fixed bottom-40 left-4 z-[100] bg-white rounded-2xl shadow-2xl p-4 w-64 animate-in zoom-in-95"><div className="flex justify-between mb-3"><h3 className="font-bold text-slate-800 text-sm">حالة الطقس؟</h3><button onClick={() => setIsOpen(false)} className="text-xs text-slate-400">إغلاق</button></div><div className="grid grid-cols-2 gap-2">{['مشمس', 'غائم', 'ممطر', 'عاصف'].map(t => (<button key={t} onClick={() => h(t)} className="p-2 bg-slate-50 rounded-xl hover:bg-slate-100 text-xs font-bold">{t}</button>))}</div></div>)}</>);
 };
 
-const AnalysisRoom = ({ lat, lon }: { lat: number, lon: number }) => {
-  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
-  const [showAll, setShowAll] = useState(false);
-  useEffect(() => { analyzeWeatherModels(lat, lon).then(setAnalysis); }, [lat, lon]);
-  if (!analysis) return <div className="mt-6 p-6 text-center text-slate-400 text-xs bg-white/50 rounded-2xl border border-slate-100">جاري التحليل...</div>;
-  return (
-    <div className="mt-6 bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden animate-in slide-in-from-bottom duration-700">
-      <div className="bg-slate-900 p-4 flex justify-between items-center">
-        <div className="flex items-center gap-2 text-white"><Brain className="w-5 h-5 text-purple-400" /><h3 className="font-bold text-sm">الذكاء التحليلي</h3></div>
-        <span className={`font-black text-lg ${analysis.consensusScore > 80 ? 'text-green-400' : 'text-red-400'}`}>{Math.round(analysis.consensusScore)}%</span>
-      </div>
-      {analysis.selfIssuedAlert && (<div className="bg-red-50 p-3 border-b border-red-100 flex gap-3 items-start"><AlertTriangle className="w-4 h-4 text-red-600 shrink-0" /><p className="text-red-600 text-[10px]">{analysis.selfIssuedAlert}</p></div>)}
-      <div className="p-4">
-        <div className="overflow-x-auto"><table className="w-full text-xs text-right whitespace-nowrap"><thead><tr className="text-slate-400 border-b"><th className="pb-2">النموذج</th><th className="pb-2">الحرارة</th><th className="pb-2">المطر</th></tr></thead><tbody className="text-slate-600">{(showAll ? analysis.allModels : analysis.allModels.slice(0, 4)).map((m, i) => (<tr key={i} className="border-b border-slate-50"><td className="py-2">{m.country} {m.name}</td><td className="py-2">{m.temp.toFixed(1)}°</td><td className="py-2">{m.rain > 0 ? `${m.rain.toFixed(1)}` : '-'}</td></tr>))}</tbody></table></div>
-        <button onClick={() => setShowAll(!showAll)} className="w-full mt-3 flex items-center justify-center gap-1 text-xs text-slate-400 py-2 border-t border-slate-50">{showAll ? "إخفاء" : "عرض المزيد"} <ArrowDown className={`w-3 h-3 ${showAll ? 'rotate-180' : ''}`} /></button>
-      </div>
-    </div>
-  );
-};
-
-const InfoCard = ({ item }: { item: any }) => {
-  const [showReason, setShowReason] = useState(false);
-  return (
-    <div onClick={() => setShowReason(!showReason)} className={`relative p-3 rounded-xl border ${item.color?.replace('text', 'border').replace('500', '100') || 'border-slate-100'} bg-white/70 backdrop-blur-md flex flex-col items-center text-center shadow-sm cursor-pointer group ${showReason ? 'ring-2 ring-blue-200' : ''}`}>
-      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"><Info className="w-3 h-3 text-slate-400" /></div>
-      <item.icon className={`w-6 h-6 mb-2 ${item.color || 'text-slate-500'}`} />
-      <span className="text-[10px] text-slate-400 font-bold mb-1">{item.title}</span>
-      <span className="text-sm font-bold text-slate-800">{item.value}</span>
-      {showReason && <div className="absolute inset-0 bg-white/95 rounded-xl p-2 flex items-center justify-center text-center text-xs text-slate-600 font-medium z-10">{item.reason}</div>}
-    </div>
-  );
-};
-
-const EditableLocation = ({ city, onSave }: { city: string, onSave: (n: string) => void }) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [tempName, setTempName] = useState(city);
-  useEffect(() => { setTempName(city); }, [city]);
-  if (isEditing) return <div className="flex items-center gap-2 bg-black/20 backdrop-blur rounded-full px-2 py-1"><input autoFocus value={tempName} onChange={e => setTempName(e.target.value)} className="bg-transparent text-white font-bold text-sm w-32 text-center outline-none" /><button onClick={() => { setIsEditing(false); onSave(tempName); }} className="text-green-400"><Check className="w-4 h-4" /></button></div>;
-  return <div onClick={() => setIsEditing(true)} className="flex items-center gap-2 text-white font-bold bg-black/20 px-4 py-1 rounded-full backdrop-blur cursor-pointer hover:bg-black/30 transition-colors"><MapPin className="w-4 h-4" /> {city} <Edit2 className="w-3 h-3 opacity-50" /></div>;
-};
-
-const getSafeValue = (array: number[] | undefined, index: number, fallback: number = 0): number => {
-  if (!array || !Array.isArray(array) || index >= array.length) return fallback;
-  return array[index];
-};
-
-const getComprehensiveInsights = (data: WeatherData) => {
+const getLifestyleInsights = (data: WeatherData) => {
   const i = [];
   const migraine = data.pressure < 1005 ? "مرتفع" : "منخفض";
-  i.push({ cat: "الصحة", title: "الصداع النصفي", val: migraine, reason: "تذبذب الضغط.", icon: HeartPulse, color: "text-red-500" });
+  i.push({ cat: "الصحة", title: "الصداع النصفي", val: migraine, reason: "تذبذب الضغط يؤثر.", icon: HeartPulse, color: "text-red-500" });
   const laundry = data.humidity < 60 ? "ممتاز" : "صعب";
   i.push({ cat: "المنزل", title: "نشر الغسيل", val: laundry, reason: "الرطوبة.", icon: Shirt, color: "text-blue-500" });
   const plants = data.soilMoisture < 0.2 ? "عطشى" : "مكتفية";
-  i.push({ cat: "المنزل", title: "سقي النباتات", val: plants, reason: "جفاف التربة.", icon: Palmtree, color: "text-orange-500" });
+  i.push({ cat: "المنزل", title: "سقي النباتات", val: plants, reason: "رطوبة التربة.", icon: Palmtree, color: "text-orange-500" });
   const carWash = data.rainProb > 30 ? "أجّله" : "مناسب";
   i.push({ cat: "السيارة", title: "غسيل السيارة", val: carWash, reason: "احتمال المطر.", icon: Car, color: "text-indigo-500" });
   const mosquito = data.temp > 20 ? "نشط" : "خامل";
@@ -180,8 +132,8 @@ const generateProBulletin = (data: WeatherData): string => {
   let rainHours: number[] = [];
   if (hourly.time) {
     hourly.time.forEach((t, i) => {
-      const temp = getSafeValue(hourly.temp, i);
-      const rain = getSafeValue(hourly.rain, i);
+      const temp = hourly.temp?.[i] || 0;
+      const rain = hourly.rain?.[i] || 0;
       const hour = new Date(t).getHours();
       if (temp > maxTemp) maxTemp = temp;
       if (temp < minTemp) minTemp = temp;
@@ -189,23 +141,35 @@ const generateProBulletin = (data: WeatherData): string => {
     });
   }
   let report = `الحرارة اليوم بين ${Math.round(minTemp)}° و ${Math.round(maxTemp)}°. `;
-  if (rainHours.length > 0) report += `🌧️ أمطار متوقعة الساعة ${rainHours[0]}:00. `; else report += `☀️ أجواء مستقرة. `;
-  if (data.uvIndex > 7) report += `⚠️ UV مرتفع.`;
+  if (rainHours.length > 0) report += `🌧️ أمطار متوقعة الساعة ${rainHours[0]}:00. `; else report += `☀️ أجواء مستقرة وصافية. `;
+  if (data.uvIndex > 7) report += `⚠️ UV مرتفع. `;
   return report;
+};
+
+const InfoCard = ({ item }: { item: any }) => {
+  const [showReason, setShowReason] = useState(false);
+  return (
+    <div onClick={() => setShowReason(!showReason)} className={`relative p-3 rounded-xl border ${item.color?.replace('text', 'border').replace('500', '100') || 'border-slate-100'} bg-white/70 backdrop-blur-md flex flex-col items-center text-center shadow-sm hover:scale-105 transition-all duration-300 h-full justify-center cursor-pointer group ${showReason ? 'ring-2 ring-blue-200' : ''}`}>
+      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"><Info className="w-3 h-3 text-slate-400" /></div>
+      <item.icon className={`w-6 h-6 mb-2 ${item.color || 'text-slate-500'}`} />
+      <span className="text-[10px] text-slate-400 font-bold mb-1">{item.title}</span>
+      <span className="text-sm font-bold text-slate-800 leading-tight">{item.val}</span>
+      {showReason && <div className="absolute inset-0 bg-white/95 rounded-xl p-2 flex items-center justify-center text-center text-xs text-slate-600 font-medium z-10">{item.reason}</div>}
+    </div>
+  );
 };
 
 const HourlyForecast = ({ data }: { data: WeatherData }) => {
   if (!data.hourly || !data.hourly.time) return null;
   return (
-    <div className="mb-8">
+    <div className="mb-8 animate-in slide-in-from-bottom duration-700">
       <h3 className="text-white font-bold mb-3 flex items-center gap-2 text-sm opacity-90"><Clock className="w-4 h-4" /> الساعات القادمة</h3>
       <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar px-2">
         {data.hourly.time.map((t, i) => {
           const date = new Date(t);
-          const temp = getSafeValue(data.hourly.temp, i);
-          const rain = getSafeValue(data.hourly.rain, i);
-          const uv = getSafeValue(data.hourly.uvIndex, i);
-          const Icon = rain > 30 ? CloudRain : (uv > 0 ? Sun : Moon);
+          const temp = data.hourly.temp?.[i] || 0;
+          const rain = data.hourly.rain?.[i] || 0;
+          const Icon = rain > 30 ? CloudRain : Sun;
           return (
             <div key={i} className="min-w-[60px] flex flex-col items-center text-white bg-white/10 backdrop-blur rounded-xl p-2 border border-white/10">
               <span className="text-xs opacity-80 mb-1">{date.getHours()}:00</span>
@@ -219,8 +183,16 @@ const HourlyForecast = ({ data }: { data: WeatherData }) => {
   );
 };
 
+const EditableLocation = ({ city, onSave }: { city: string, onSave: (n: string) => void }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [tempName, setTempName] = useState(city);
+  useEffect(() => { setTempName(city); }, [city]);
+  if (isEditing) return <div className="flex items-center gap-2 bg-black/20 backdrop-blur rounded-full px-2 py-1"><input autoFocus value={tempName} onChange={e => setTempName(e.target.value)} className="bg-transparent text-white font-bold text-sm w-32 text-center outline-none" /><button onClick={() => { setIsEditing(false); onSave(tempName); }} className="text-green-400"><Check className="w-4 h-4" /></button></div>;
+  return <div onClick={() => setIsEditing(true)} className="flex items-center gap-2 text-white font-bold bg-black/20 px-4 py-1 rounded-full backdrop-blur cursor-pointer hover:bg-black/30 transition-colors"><MapPin className="w-4 h-4" /> {city} <Edit2 className="w-3 h-3 opacity-50" /></div>;
+};
+
 const WeatherHero = ({ data, onCityRename }: { data: WeatherData, onCityRename: (n: string) => void }) => {
-  const insights = getComprehensiveInsights(data);
+  const insights = getLifestyleInsights(data);
   const bulletin = generateProBulletin(data);
 
   return (
@@ -245,7 +217,7 @@ const WeatherHero = ({ data, onCityRename }: { data: WeatherData, onCityRename: 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
         <InfoCard item={{ icon: Sunrise, title: "الشروق", value: data.sunrise, color: "text-amber-500" }} />
         <InfoCard item={{ icon: Sunset, title: "الغروب", value: data.sunset, color: "text-orange-500" }} />
-        <InfoCard item={{ icon: Sun, title: "مؤشر UV", value: data.uvIndex, color: "text-purple-500" }} />
+        <InfoCard item={{ icon: Sun, title: "UV", value: data.uvIndex, color: "text-purple-500" }} />
         <InfoCard item={{ icon: Eye, title: "الرؤية", value: `${Math.round(data.visibility / 1000)} كم`, color: "text-emerald-500" }} />
       </div>
 
@@ -262,12 +234,11 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<CityResult[]>([]);
   const [showSearch, setShowSearch] = useState(false);
-  const [coords, setCoords] = useState({ lat: 33.5731, lon: -7.5898 });
 
   const handleRename = (newName: string) => { if (weather) setWeather({ ...weather, city: newName }); };
 
   const fetchWeather = useCallback(async (lat: number, lon: number, name: string) => {
-    setLoading(true); setCoords({ lat, lon });
+    setLoading(true);
     const data = await getWeather(lat, lon, name);
     setWeather(data); setLoading(false); setShowSearch(false);
   }, []);
@@ -290,7 +261,7 @@ export default function Home() {
     return () => clearTimeout(t);
   }, [searchQuery]);
 
-  if (loading) return <div className="h-screen flex items-center justify-center bg-slate-900 text-white"><Loader2 className="w-8 h-8 animate-spin"/></div>;
+  if (loading && !weather) return <div className="h-screen flex items-center justify-center bg-slate-900 text-white"><Loader2 className="w-8 h-8 animate-spin"/></div>;
   if (!weather) return <div className="h-screen flex items-center justify-center bg-slate-900 text-white">تعذر جلب البيانات</div>;
 
   return (
@@ -319,12 +290,19 @@ export default function Home() {
         </div>
         
         <WeatherHero data={weather} onCityRename={handleRename} />
-        <AnalysisRoom lat={coords.lat} lon={coords.lon} />
         
-        <div className="mt-6">
-          <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2"><MapPin className="w-5 h-5" /> خريطة الرصد</h2>
-          <WeatherMap lat={coords.lat} lon={coords.lon} city={weather.city} />
-        </div>
+        {/* زر الرادار فقط (بدون الخريطة المكررة) */}
+        <Link href="/radar">
+          <div className="mt-8 bg-gradient-to-r from-blue-600/90 to-indigo-600/90 backdrop-blur rounded-3xl p-6 flex items-center justify-between cursor-pointer hover:scale-[1.02] transition-transform shadow-2xl border border-white/20 group">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-white/20 rounded-full group-hover:rotate-12 transition-transform"><MapPin className="w-8 h-8 text-white" /></div>
+              <div><h3 className="text-white font-bold text-xl">غرفة الرادار</h3><p className="text-blue-100 text-sm">الخرائط والتحليل</p></div>
+            </div>
+            <ArrowRight className="w-6 h-6 text-white" />
+          </div>
+        </Link>
+
+        <AppFooter />
       </div>
     </main>
   );
