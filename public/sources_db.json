@@ -1,0 +1,98 @@
+{
+    "version": "3.0",
+    "last_update": "2025-02-25",
+    "sources": [
+      {
+        "id": "om-global",
+        "name": "Open-Meteo Global",
+        "category": "weather",
+        "format": "json",
+        "url": "https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,wind_speed_10m&timezone=auto",
+        "mapping": { "temp": "current.temperature_2m", "wind": "current.wind_speed_10m" },
+        "priority": 10
+      },
+      {
+        "id": "usgs-quake",
+        "name": "USGS Earthquakes",
+        "category": "disaster",
+        "format": "geojson",
+        "url": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson",
+        "mapping": { "list": "features", "title": "properties.place", "severity": "properties.mag" },
+        "priority": 9
+      },
+      {
+        "id": "nasa-solar",
+        "name": "NASA DONKI Solar",
+        "category": "space",
+        "format": "json",
+        "url": "https://api.nasa.gov/DONKI/GST?startDate={date}&api_key=DEMO_KEY",
+        "mapping": { "list": "$", "title": "gstID", "severity": "allKpIndex" },
+        "priority": 8
+      },
+      {
+        "id": "gdacs-rss",
+        "name": "Global Disaster Alert",
+        "category": "disaster",
+        "format": "rss",
+        "url": "https://www.gdacs.org/xml/rss.xml",
+        "mapping": { "list": "item", "title": "title", "link": "link" },
+        "priority": 8
+      },
+      {
+        "id": "noaa-solar-json",
+        "name": "NOAA Solar Wind",
+        "category": "space",
+        "format": "json",
+        "url": "https://services.swpc.noaa.gov/products/solar-wind/mag-5-minute.json",
+        "mapping": { "list": "$", "value": "bt" },
+        "priority": 7
+      },
+      {
+        "id": "rainviewer-radar",
+        "name": "RainViewer Coverage",
+        "category": "radar",
+        "format": "json",
+        "url": "https://api.rainviewer.com/public/weather-maps.json",
+        "mapping": { "ts": "radar.past[last].time" },
+        "priority": 9
+      },
+      {
+        "id": "waqi-geo",
+        "name": "World Air Quality",
+        "category": "bio",
+        "format": "json",
+        "url": "https://api.waqi.info/feed/geo:{lat};{lon}/?token=demo",
+        "mapping": { "aqi": "data.aqi", "city": "data.city.name" },
+        "priority": 8
+      },
+      {
+        "id": "met-no",
+        "name": "Met Norway",
+        "category": "weather",
+        "format": "json",
+        "url": "https://api.met.no/weatherapi/locationforecast/2.0/compact?lat={lat}&lon={lon}",
+        "mapping": { "temp": "properties.timeseries[0].data.instant.details.air_temperature" },
+        "priority": 9
+      },
+      {
+        "id": "datostro",
+        "name": "Astro Data",
+        "category": "space",
+        "format": "json",
+        "url": "https://www.7timer.info/bin/astro.php?lon={lon}&lat={lat}&ac=0&unit=metric&output=json&tzshift=0",
+        "mapping": { "seeing": "dataseries[0].seeing" },
+        "priority": 6
+      },
+      {
+        "id": "carbon-int",
+        "name": "Carbon Intensity",
+        "category": "eco",
+        "format": "json",
+        "url": "https://api.carbonintensity.org.uk/intensity",
+        "mapping": { "index": "data[0].intensity.index" },
+        "priority": 5
+      }
+     
+    ]
+  }
+  

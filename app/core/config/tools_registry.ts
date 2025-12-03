@@ -13,7 +13,7 @@ export interface ToolDef {
   globalVar?: string; // اسم المتغير العام (مثلاً L لـ Leaflet)
 }
 
-export const MASTER_TOOLS_REGISTRY: ToolDef[] = [
+export const FALLBACK_TOOLS: ToolDef[] = [
   // --- 1. عمالقة الخرائط (Mapping Giants) ---
   { id: 'leaflet', name: 'Leaflet JS', desc: 'الخريطة الأساسية الخفيفة', category: 'map', url: 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js', type: 'script', globalVar: 'L' },
   { id: 'leaflet-css', name: 'Leaflet CSS', desc: 'ستايل الخريطة', category: 'map', url: 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css', type: 'css' },
