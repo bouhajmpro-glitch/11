@@ -6,7 +6,7 @@ export type LoadType = 'script' | 'css' | 'api_endpoint' | 'module';
 export interface ToolDef {
   id: string;
   name: string;
-  desc: string;
+  desc?: string;
   category: ToolCategory;
   url: string; // رابط CDN أو API
   type: LoadType;
