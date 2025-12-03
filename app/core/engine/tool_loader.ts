@@ -1,20 +1,24 @@
 // app/core/engine/tool_loader.ts
 import { ToolDef, FALLBACK_TOOLS } from '../config/tools_registry';
 
-// الذاكرة الحية (Live Registry)
 let DYNAMIC_REGISTRY: ToolDef[] = [];
 const loadedScripts = new Set<string>();
 
 /**
  * 1. وظيفة التهيئة (The Initializer)
- * تحاول جلب الملف من السحابة، وإذا فشلت، تستخدم الاحتياطي الصلب.
+ * التعديل: إضافة ?t=... لمنع التخزين المؤقت (Cache Busting)
  */
 export async function initToolsEngine() {
-  if (DYNAMIC_REGISTRY.length > 0) return; // تم التحميل مسبقاً
+  // إزالة شرط التوقف للسماح بالتحديث عند إعادة الدخول للصفحة
+  // if (DYNAMIC_REGISTRY.length > 0) return; 
 
   try {
-    console.log("📡 Engine: Attempting to fetch dynamic tools...");
-    const res = await fetch('/tools.json'); // الملف الذي يحدثه الروبوت
+    console.log("📡 Engine: Fetching tools registry...");
+    // الحيلة هنا: إضافة وقت عشوائي للرابط لإجبار المتصفح على جلب الملف الجديد
+    const res = await fetch(`/tools.json?t=${Date.now()}`, { 
+      cache: 'no-store',
+      headers: { 'Pragma': 'no-cache' }
+    }); 
     
     if (res.ok) {
       const data = await res.json();
@@ -24,42 +28,36 @@ export async function initToolsEngine() {
         return;
       }
     }
-    throw new Error("Invalid or empty JSON");
+    throw new Error("Invalid JSON");
   } catch (e) {
-    console.warn("⚠️ Engine: Cloud sync failed. Activating Fallback Protocol.");
-    // تفعيل خطة الطوارئ: استخدام القائمة الصلبة
+    console.warn("⚠️ Engine: Cloud sync failed. Activating Fallback.");
+    // استخدام القائمة الاحتياطية الكاملة
     DYNAMIC_REGISTRY = FALLBACK_TOOLS;
-    console.log(`🛡️ Engine: Fallback active with ${DYNAMIC_REGISTRY.length} core tools.`);
   }
 }
 
 /**
- * 2. وظيفة الاسترجاع (The Getter)
- * تعيد القائمة الحالية (سواء كانت سحابية أو احتياطية)
+ * 2. وظيفة الاسترجاع
  */
 export function getAllTools(): ToolDef[] {
-  // إذا لم يتم التهيئة بعد، نعيد الاحتياطي فوراً لعدم تعطيل الواجهة
   return DYNAMIC_REGISTRY.length > 0 ? DYNAMIC_REGISTRY : FALLBACK_TOOLS;
 }
 
 /**
- * 3. وظيفة التحميل الذكي (The Smart Loader)
- * تقوم بحقن السكربت في الصفحة فقط عند الحاجة
+ * 3. وظيفة التحميل الذكي
  */
 export async function loadTool(toolId: string): Promise<any> {
-  // البحث في السجل الحالي
   const tool = getAllTools().find(t => t.id === toolId);
   
   if (!tool) {
-    console.error(`❌ Tool ${toolId} not found in registry.`);
+    console.error(`❌ Tool ${toolId} not found.`);
     return null;
   }
 
-  // أ) نوع سكربت (JS Library)
+  // أ) سكربت JS
   if (tool.type === 'script') {
-    // هل هو محمل مسبقاً؟
     if (loadedScripts.has(toolId)) {
-      console.log(`⚡ ${tool.name} is already loaded.`);
+      console.log(`⚡ ${tool.name} already active.`);
       return (window as any)[tool.globalVar || ''];
     }
 
@@ -75,13 +73,14 @@ export async function loadTool(toolId: string): Promise<any> {
       };
       script.onerror = () => {
         console.error(`🔥 Failed to load ${tool.name}`);
-        reject(new Error(`Failed to load ${tool.name}`));
+        // لا نرفض الوعد (Reject) بالكامل لتجنب انهيار الواجهة، بل نعيد null
+        resolve(null); 
       };
       document.body.appendChild(script);
     });
   }
 
-  // ب) نوع ستايل (CSS)
+  // ب) ستايل CSS
   if (tool.type === 'css') {
     if (document.querySelector(`link[href="${tool.url}"]`)) return;
     const link = document.createElement('link');
@@ -91,14 +90,12 @@ export async function loadTool(toolId: string): Promise<any> {
     return;
   }
 
-  // ج) نوع API (JSON Data)
+  // ج) API Endpoint
   if (tool.type === 'api_endpoint') {
     try {
       const res = await fetch(tool.url);
       return await res.json();
-    } catch (e) {
-      return null;
-    }
+    } catch (e) { return null; }
   }
 
   return null;
