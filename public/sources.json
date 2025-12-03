@@ -1,0 +1,15 @@
+{
+    "version": "2.0",
+    "sources": [
+      { "id": "om", "name": "Open-Meteo", "url": "https://api.open-meteo.com", "type": "global", "region": "world", "priority": 10 },
+      { "id": "yr", "name": "YR.no", "url": "https://api.met.no/weatherapi", "type": "global", "region": "world", "priority": 9 },
+      { "id": "owm", "name": "OpenWeatherMap", "url": "https://api.openweathermap.org", "type": "global", "region": "world", "priority": 8 },
+      { "id": "nasa-power", "name": "NASA POWER", "url": "https://power.larc.nasa.gov", "type": "special", "region": "world", "priority": 9 },
+      { "id": "usgs", "name": "USGS Earthquakes", "url": "https://earthquake.usgs.gov", "type": "special", "region": "world", "priority": 9 },
+      { "id": "marine-om", "name": "Open-Meteo Marine", "url": "https://marine-api.open-meteo.com", "type": "marine", "region": "sea", "priority": 9 },
+      { "id": "nasa-donki", "name": "NASA DONKI", "url": "https://api.nasa.gov/DONKI", "type": "space", "region": "world", "priority": 8 },
+      { "id": "dwd", "name": "DWD Germany", "url": "https://api.brightsky.dev", "type": "local", "region": "eu", "priority": 9 },
+      { "id": "nws", "name": "NWS NOAA", "url": "https://api.weather.gov", "type": "local", "region": "us", "priority": 9 }
+    ]
+  }
+  

@@ -1,12 +1,12 @@
-name: The Weather Brain 🧠
+name: The Super Brain 🧠 & Hunter 🕵️‍♂️
 
 on:
   schedule:
-    - cron: '0 */6 * * *' # تشغيل كل 6 ساعات
-  workflow_dispatch: # يسمح لك بتشغيله يدوياً بضغط زر
+    - cron: '0 */6 * * *' # كل 6 ساعات
+  workflow_dispatch:
 
 jobs:
-  think-and-update:
+  evolve:
     runs-on: ubuntu-latest
     
     steps:
@@ -18,13 +18,19 @@ jobs:
       with:
         node-version: '18'
 
-    - name: Run The Brain Script
+    # 1. تشغيل العقل (للأخبار)
+    - name: Run Brain (News)
       run: node scripts/brain.js
 
-    - name: Commit and Push Changes
+    # 2. تشغيل الصياد (للمصادر)
+    - name: Run Hunter (Sources)
+      run: node scripts/hunter.js
+
+    # 3. حفظ كل النتائج
+    - name: Commit Everything
       run: |
-        git config --global user.name 'Weather Bot 🤖'
+        git config --global user.name 'Super Bot 🤖'
         git config --global user.email 'bot@sentient-sky.app'
-        git add public/brain-data.json
-        git commit -m "🧠 Brain updated the data" || echo "No changes to commit"
+        git add public/*.json
+        git commit -m "🧠 System evolved: News & Sources updated" || echo "No changes"
         git push

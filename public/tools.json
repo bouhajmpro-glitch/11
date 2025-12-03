@@ -24,8 +24,23 @@
         "category": "space",
         "url": "https://gibs.earthdata.nasa.gov",
         "type": "api_endpoint"
+      },
+      {
+        "id": "d3",
+        "name": "D3 Data Viz",
+        "category": "viz",
+        "url": "https://d3js.org/d3.v7.min.js",
+        "type": "script",
+        "globalVar": "d3"
+      },
+      {
+        "id": "cesium",
+        "name": "Cesium 3D Globe",
+        "category": "3d",
+        "url": "https://cesium.com/downloads/cesiumjs/releases/1.110/Build/Cesium/Cesium.js",
+        "type": "script",
+        "globalVar": "Cesium"
       }
-      // ... (الروبوت سيضيف الـ 150 أداة هنا تلقائياً)
     ]
   }
   
