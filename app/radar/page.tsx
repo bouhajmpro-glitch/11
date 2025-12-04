@@ -1,103 +1,253 @@
-// app/radar/page.tsx
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import dynamic from 'next/dynamic';
-import { BarChart3, ChevronUp, ChevronDown, AlertTriangle, Brain, Check, Loader2, MapPin } from 'lucide-react';
-// 1. الاستيراد الصحيح من النواة
-import { analyzeWeatherModels, AnalysisResult, ModelForecast } from '../core/analysis/engine';
-import { getLocationByIP } from '../core/weather/api';
+import React, { useState, useEffect, useRef } from 'react';
+import Script from 'next/script'; 
+import { 
+  Play, Pause, Layers, Wind, CloudRain, Thermometer, Zap, 
+  Activity, Search, Map as MapIcon, Navigation, Table2, Cloud, Gauge
+} from 'lucide-react';
+import { getWeather } from '../core/weather/api'; 
+import { RadarAnalysis } from '../components/RadarAnalysis'; 
+import { ModelComparison } from '../components/ModelComparison';
 
-const WeatherMap = dynamic(() => import('../Map'), { 
-  ssr: false, 
-  loading: () => <div className="h-full w-full bg-slate-900 animate-pulse flex items-center justify-center text-slate-500">جاري تحميل الرادار...</div> 
-});
-
-// 2. رسم بياني يدوي (SVG) لتجنب أخطاء Recharts
-const SimpleChart = ({ data }: { data: ModelForecast[] }) => {
-  if (!data || data.length === 0) return null;
-  
-  const temps = data.map(d => d.temp);
-  const max = Math.max(...temps) || 10;
-  const min = Math.min(...temps) || 0;
-  const range = max - min || 1;
-  
-  const points = data.map((d, i) => {
-    const x = (i / (data.length - 1)) * 100;
-    const y = 100 - ((d.temp - min) / range) * 80 - 10;
-    return `${x},${y}`;
-  }).join(' ');
-
-  return (
-    <div className="h-32 w-full mt-4 bg-slate-800/50 rounded-xl relative overflow-hidden border border-white/5">
-      <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-        <defs><linearGradient id="grad" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.5" /><stop offset="100%" stopColor="#8b5cf6" stopOpacity="0" /></linearGradient></defs>
-        <path d={`M0,100 L0,${100} ${points} L100,${100} Z`} fill="url(#grad)" />
-        <polyline points={points} fill="none" stroke="#a78bfa" strokeWidth="2" vectorEffect="non-scaling-stroke" />
-      </svg>
-      <div className="absolute bottom-0 w-full flex justify-between px-2 text-[8px] text-slate-400">{data.map((d, i) => <span key={i}>{d.name.slice(0,3)}</span>)}</div>
-    </div>
-  );
-};
-
-const AnalysisSection = ({ lat, lon }: { lat: number, lon: number }) => {
-  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
-  const [isPanelOpen, setIsPanelOpen] = useState(true);
-
-  useEffect(() => { analyzeWeatherModels(lat, lon).then(setAnalysis); }, [lat, lon]);
-
-  if (!analysis) return <div className="p-6 text-center text-slate-400 text-xs">جاري تحليل النماذج...</div>;
-
-  return (
-    <div className={`absolute bottom-0 left-0 right-0 bg-slate-900/90 backdrop-blur-xl border-t border-white/10 transition-all duration-500 z-20 flex flex-col ${isPanelOpen ? 'h-[60vh]' : 'h-12'}`}>
-      <button onClick={() => setIsPanelOpen(!isPanelOpen)} className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white p-2 rounded-t-xl border-t border-x border-white/10 shadow-lg">{isPanelOpen ? <ChevronDown className="w-5 h-5"/> : <ChevronUp className="w-5 h-5"/>}</button>
-      <div className="p-6 flex-1 overflow-y-auto">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-white font-bold flex items-center gap-2"><Brain className="w-5 h-5 text-purple-400"/> الذكاء التحليلي</h2>
-          <div className="text-right"><span className="text-xs text-slate-400 block">دقة النظام</span><span className="text-xl font-black text-green-400">{Math.round(analysis.consensusScore)}%</span></div>
-        </div>
-
-        {analysis.selfIssuedAlert && (<div className="bg-red-500/10 border border-red-500/20 p-3 rounded-xl mb-4 flex gap-3 items-center"><AlertTriangle className="w-5 h-5 text-red-500 shrink-0" /><p className="text-red-400 text-xs font-bold">{analysis.selfIssuedAlert}</p></div>)}
-
-        <div className="mb-6"><h3 className="text-xs font-bold text-slate-400 mb-2">تباين الحرارة</h3><SimpleChart data={analysis.allModels} /></div>
-
-        <table className="w-full text-xs text-right text-slate-300">
-          <thead><tr className="border-b border-white/10"><th className="pb-2">النموذج</th><th className="pb-2">الحرارة</th><th className="pb-2">المطر</th><th className="pb-2">الرياح</th></tr></thead>
-          <tbody>
-            {/* 3. تحديد الأنواع (m: ModelForecast) */}
-            {analysis.allModels.map((m: ModelForecast, i: number) => (
-              <tr key={i} className="border-b border-white/5 hover:bg-white/5">
-                <td className="py-3 flex gap-2 items-center">{m.country} {m.name} {i===0 && <Check className="w-3 h-3 text-green-500"/>}</td>
-                <td className="py-3 text-amber-400 font-mono">{m.temp.toFixed(1)}°</td>
-                <td className="py-3 text-blue-400 font-mono">{m.rain > 0 ? m.rain : '-'}</td>
-                <td className="py-3 font-mono">{m.wind.toFixed(0)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-};
+// مفتاح OpenWeatherMap للطبقات (يمكنك استبداله بمفتاحك الخاص للحصول على أداء أفضل)
+const OWM_KEY = '9de243494c0b295cca9337e1e96b00e2'; 
 
 export default function RadarPage() {
-  const [coords, setCoords] = useState<{ lat: number, lon: number } | null>(null);
+  const mapRef = useRef<any>(null);
+  const [isMapReady, setIsMapReady] = useState(false);
+  
+  // الطبقات الشاملة
+  const [activeLayer, setActiveLayer] = useState<'radar' | 'satellite' | 'wind' | 'temp' | 'clouds' | 'pressure'>('radar');
+  
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTimeIndex, setCurrentTimeIndex] = useState(0);
+  const [timestamps, setTimestamps] = useState<number[]>([]);
+  const [selectedLocation, setSelectedLocation] = useState<any>(null);
+  const [loadingAnalysis, setLoadingAnalysis] = useState(false);
+  const [showModels, setShowModels] = useState(false);
 
+  const initMap = () => {
+    if (typeof window === 'undefined' || !(window as any).L) return;
+    const L = (window as any).L;
+
+    if (mapRef.current) return;
+
+    const map = L.map('weather-map', {
+      zoomControl: false,
+      attributionControl: false
+    }).setView([34.0209, -6.8416], 6);
+
+    // الخريطة الداكنة (Dark Matter)
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      subdomains: 'abcd',
+      maxZoom: 19
+    }).addTo(map);
+
+    mapRef.current = map;
+    setIsMapReady(true);
+
+    map.on('click', async (e: any) => {
+      const { lat, lng } = e.latlng;
+      handleAnalyzeLocation(lat, lng);
+    });
+
+    fetchRadarFrames();
+  };
+
+  const handleAnalyzeLocation = async (lat: number, lng: number) => {
+    setLoadingAnalysis(true);
+    const L = (window as any).L;
+    
+    L.popup()
+      .setLatLng([lat, lng])
+      .setContent('<div style="color:#333; font-weight:bold; font-size:12px">جاري سحب البيانات...</div>')
+      .openOn(mapRef.current);
+
+    try {
+      const data = await getWeather(lat, lng, `موقع ${lat.toFixed(2)}, ${lng.toFixed(2)}`);
+      setSelectedLocation({ lat, lng, data });
+    } catch (err) {
+      console.error("Analysis Failed", err);
+    } finally {
+      setLoadingAnalysis(false);
+    }
+  };
+
+  const fetchRadarFrames = async () => {
+    try {
+      const res = await fetch('https://api.rainviewer.com/public/weather-maps.json');
+      const data = await res.json();
+      
+      const past = data.radar?.past || [];
+      const nowcast = data.radar?.nowcast || [];
+      const allFrames = [...past, ...nowcast].map((f: any) => f.time);
+      
+      if (allFrames.length > 0) {
+        setTimestamps(allFrames);
+        setCurrentTimeIndex(past.length - 1);
+      }
+    } catch (e) {
+      console.error("RainViewer API Error", e);
+    }
+  };
+
+  // إدارة الطبقات المتعددة
   useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => setCoords({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
-        async () => { const ip = await getLocationByIP(); if (ip) setCoords(ip); else setCoords({ lat: 33.5731, lon: -7.5898 }); }
-      );
-    } else { setCoords({ lat: 33.5731, lon: -7.5898 }); }
-  }, []);
+    if (!isMapReady || !mapRef.current) return;
+    const L = (window as any).L;
 
-  if (!coords) return <div className="h-screen flex items-center justify-center bg-slate-900"><Loader2 className="w-10 h-10 animate-spin text-blue-500"/></div>;
+    // إزالة الطبقة السابقة
+    mapRef.current.eachLayer((layer: any) => {
+      if (layer.options?.id === 'weather-layer') {
+        mapRef.current.removeLayer(layer);
+      }
+    });
+
+    let layerUrl = '';
+    const ts = timestamps[currentTimeIndex] || Math.floor(Date.now() / 1000); // وقت احتياطي
+
+    // اختيار مصدر الطبقة
+    switch (activeLayer) {
+      case 'radar':
+        // RainViewer: رادار المطر (يعمل مع التوقيت)
+        layerUrl = `https://tile.rainviewer.com${timestamps.length > 0 ? timestamps[currentTimeIndex] : ''}/256/{z}/{x}/{y}/2/1_1.png`;
+        break;
+      case 'satellite':
+        // RainViewer: أقمار صناعية (يعمل مع التوقيت)
+        layerUrl = `https://tile.rainviewer.com${timestamps.length > 0 ? timestamps[currentTimeIndex] : ''}/256/{z}/{x}/{y}/0/0_0.png`;
+        break;
+      
+      // OpenWeatherMap Layers (لا تدعم التوقيت بدقة RainViewer، لذا نستخدم الرابط المباشر)
+      case 'wind':
+        layerUrl = `https://tile.openweathermap.org/map/wind_new/{z}/{x}/{y}.png?appid=${OWM_KEY}`;
+        break;
+      case 'temp':
+        layerUrl = `https://tile.openweathermap.org/map/temp_new/{z}/{x}/{y}.png?appid=${OWM_KEY}`;
+        break;
+      case 'clouds':
+        layerUrl = `https://tile.openweathermap.org/map/clouds_new/{z}/{x}/{y}.png?appid=${OWM_KEY}`;
+        break;
+      case 'pressure':
+        layerUrl = `https://tile.openweathermap.org/map/pressure_new/{z}/{x}/{y}.png?appid=${OWM_KEY}`;
+        break;
+    }
+
+    if (layerUrl) {
+      L.tileLayer(layerUrl, {
+        id: 'weather-layer',
+        opacity: activeLayer === 'radar' || activeLayer === 'satellite' ? 0.8 : 0.6,
+        zIndex: 500
+      }).addTo(mapRef.current);
+    }
+
+    // حركة الرادار (فقط للطبقات التي تدعم الزمن)
+    let timer: any;
+    if (isPlaying && (activeLayer === 'radar' || activeLayer === 'satellite')) {
+      timer = setTimeout(() => {
+        setCurrentTimeIndex((prev) => (prev + 1) % timestamps.length);
+      }, 500);
+    }
+    return () => clearTimeout(timer);
+
+  }, [currentTimeIndex, isMapReady, timestamps, activeLayer, isPlaying]);
+
+  const formatTime = (ts: number) => {
+    if (!ts) return "--:--";
+    return new Date(ts * 1000).toLocaleTimeString('ar-MA', { hour: '2-digit', minute: '2-digit' });
+  };
 
   return (
-    <div className="h-screen w-full relative bg-slate-900 flex flex-col overflow-hidden">
-       <div className="absolute inset-0 z-0"><WeatherMap lat={coords.lat} lon={coords.lon} city="مركز الرصد" /></div>
-       <AnalysisSection lat={coords.lat} lon={coords.lon} />
+    <div className="relative w-full h-screen bg-slate-950 overflow-hidden font-sans" dir="rtl">
+      
+      <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+      <Script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" onLoad={initMap} />
+      <Script src="https://cdn.jsdelivr.net/npm/chart.js" />
+
+      <div id="weather-map" className="absolute inset-0 z-0 bg-slate-900" />
+
+      {/* لوحة التحكم العلوية */}
+      <div className="absolute top-4 left-4 right-4 z-20 flex flex-col sm:flex-row justify-between items-start pointer-events-none gap-2">
+        
+        <div className="flex gap-2 pointer-events-auto">
+          {/* البحث */}
+          <div className="bg-slate-900/80 backdrop-blur-md p-2 rounded-2xl border border-white/10 shadow-2xl flex items-center gap-2">
+            <Search className="text-slate-400 w-5 h-5" />
+            <input type="text" placeholder="بحث..." className="bg-transparent border-none outline-none text-white text-sm w-24 sm:w-32 placeholder-slate-500" />
+          </div>
+
+          {/* زر المقارنة */}
+          {selectedLocation && (
+            <button 
+              onClick={() => setShowModels(!showModels)}
+              className={`bg-slate-900/80 backdrop-blur-md p-2 rounded-2xl border border-white/10 shadow-2xl flex items-center gap-2 transition-all ${showModels ? 'text-blue-400 border-blue-500/50' : 'text-white'}`}
+            >
+              <Table2 size={20} />
+              <span className="text-xs font-bold hidden sm:inline">مقارنة</span>
+            </button>
+          )}
+        </div>
+
+        {/* شريط الأدوات الشامل (Layers) */}
+        <div className="bg-slate-900/90 backdrop-blur-md p-1.5 rounded-2xl border border-white/10 pointer-events-auto flex flex-wrap gap-1 shadow-2xl max-w-[300px] sm:max-w-none justify-end">
+          <button onClick={() => setActiveLayer('radar')} title="أمطار" className={`p-2 rounded-xl transition-all ${activeLayer === 'radar' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white bg-white/5'}`}>
+            <CloudRain size={18} />
+          </button>
+          <button onClick={() => setActiveLayer('wind')} title="رياح" className={`p-2 rounded-xl transition-all ${activeLayer === 'wind' ? 'bg-teal-600 text-white' : 'text-slate-400 hover:text-white bg-white/5'}`}>
+            <Wind size={18} />
+          </button>
+          <button onClick={() => setActiveLayer('temp')} title="حرارة" className={`p-2 rounded-xl transition-all ${activeLayer === 'temp' ? 'bg-orange-600 text-white' : 'text-slate-400 hover:text-white bg-white/5'}`}>
+            <Thermometer size={18} />
+          </button>
+          <button onClick={() => setActiveLayer('clouds')} title="سحب" className={`p-2 rounded-xl transition-all ${activeLayer === 'clouds' ? 'bg-gray-600 text-white' : 'text-slate-400 hover:text-white bg-white/5'}`}>
+            <Cloud size={18} />
+          </button>
+          <button onClick={() => setActiveLayer('pressure')} title="ضغط" className={`p-2 rounded-xl transition-all ${activeLayer === 'pressure' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white bg-white/5'}`}>
+            <Gauge size={18} />
+          </button>
+          <button onClick={() => setActiveLayer('satellite')} title="أقمار" className={`p-2 rounded-xl transition-all ${activeLayer === 'satellite' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white bg-white/5'}`}>
+            <Layers size={18} />
+          </button>
+        </div>
+      </div>
+
+      {/* مشغل الزمن (يظهر فقط مع الرادار والأقمار) */}
+      {(activeLayer === 'radar' || activeLayer === 'satellite') && (
+        <div className="absolute bottom-8 left-4 right-4 z-20 pointer-events-none">
+          <div className="bg-slate-900/90 backdrop-blur-xl border border-white/10 rounded-3xl p-4 shadow-2xl pointer-events-auto max-w-3xl mx-auto">
+            <div className="flex items-center gap-4">
+              <button onClick={() => setIsPlaying(!isPlaying)} className="w-12 h-12 rounded-full bg-blue-500 hover:bg-blue-400 flex items-center justify-center text-white transition-all shadow-lg">
+                {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" className="ml-1" />}
+              </button>
+              <div className="flex-1 flex flex-col gap-2">
+                <div className="flex justify-between text-[10px] text-slate-400 font-mono uppercase tracking-widest">
+                  <span>-2H</span>
+                  <span className="text-white font-bold text-xs bg-white/10 px-3 py-0.5 rounded border border-white/5">{formatTime(timestamps[currentTimeIndex])}</span>
+                  <span>+30M</span>
+                </div>
+                <input type="range" min="0" max={timestamps.length - 1} value={currentTimeIndex} onChange={(e) => { setIsPlaying(false); setCurrentTimeIndex(Number(e.target.value)); }} className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500" />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* اللوحة الجانبية */}
+      {selectedLocation && (
+        <div className="absolute top-20 right-4 z-30 w-80 sm:w-96 max-h-[80vh] overflow-y-auto custom-scrollbar animate-in slide-in-from-right duration-300 pointer-events-auto pb-20">
+          <RadarAnalysis 
+            data={selectedLocation.data} 
+            loading={loadingAnalysis} 
+            onClose={() => { setSelectedLocation(null); setShowModels(false); }} 
+          />
+          {showModels && (
+            <div className="animate-in slide-in-from-top duration-300">
+              <ModelComparison lat={selectedLocation.lat} lng={selectedLocation.lng} />
+            </div>
+          )}
+        </div>
+      )}
+
     </div>
   );
 }

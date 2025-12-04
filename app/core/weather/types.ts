@@ -1,4 +1,8 @@
-// app/core/weather/types.ts
+export interface MinutelyData {
+  time: string[];
+  rain: number[];
+  temp: number[];
+}
 
 export interface HourlyData {
   time: string[];
@@ -10,7 +14,7 @@ export interface HourlyData {
   uvIndex: number[];
   cloudCover: number[];
   visibility: number[];
-  windSpeed: number[]; // Assure-toi que c'est windSpeed ici
+  windSpeed: number[];
   windDir: number[];
   windGusts: number[];
   rain: number[];
@@ -33,52 +37,64 @@ export interface DailyData {
   minTemp: number[];
 }
 
+export interface LifestyleData {
+  [key: string]: string;
+}
+
+// تحديث هيكل الخبر لدعم الروابط والتفاصيل
+export interface NewsItem {
+  type: 'danger' | 'info' | 'space' | 'science' | 'crawler';
+  text: string;
+  source?: string;
+  link?: string;    // رابط خارجي (اختياري)
+  details?: string; // تفاصيل إضافية للقراءة (اختياري)
+}
+
 export interface WeatherData {
-  // --- Basic ---
   temp: number;
   feelsLike: number;
   humidity: number;
-  pressure: number;
-  pressureSealevel: number;
   windSpeed: number;
   windGusts: number;
   windDir: number;
+  pressure: number;
+  pressureSealevel: number;
   description: string;
   weatherCode: number;
-  cloudCover: number; // <--- AJOUTÉ ICI (C'était le manquant)
+  cloudCover: number;
   isDay: boolean;
   city: string;
   country: string;
-  
-  // --- Astronomy ---
+  source: string;
+
   sunrise: string;
   sunset: string;
   moonPhase: string;
   dayLength: number;
 
-  // --- Bio ---
   uvIndex: number;
   visibility: number;
   dewPoint: number;
   airQuality: number;
   pollen: number;
-  
-  // --- Agro ---
+
   soilMoisture: number;
   soilTemp: number;
   evapotranspiration: number;
   leafWetness: number;
 
-  // --- Hazards ---
   rainProb: number;
   rainAmount: number;
   snowDepth: number;
   freezingRain: boolean;
   cape: number;
 
-  // --- Arrays ---
+  minutely15: MinutelyData;
   hourly: HourlyData;
   daily: DailyData;
+  lifestyle?: LifestyleData;
+  
+  newsTicker: NewsItem[];
 }
 
 export interface CityResult {
@@ -87,5 +103,5 @@ export interface CityResult {
   latitude: number;
   longitude: number;
   country: string;
-  timezone: string;
+  admin1?: string;
 }
