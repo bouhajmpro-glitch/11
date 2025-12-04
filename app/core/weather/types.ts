@@ -10,11 +10,11 @@ export interface HourlyData {
   uvIndex: number[];
   cloudCover: number[];
   visibility: number[];
-  windSpeed: number[];
+  windSpeed: number[]; // Assure-toi que c'est windSpeed ici
   windDir: number[];
   windGusts: number[];
-  rain: number[];        // احتمالية المطر
-  rainAmount: number[];  // كمية المطر
+  rain: number[];
+  rainAmount: number[];
   snowDepth: number[];
   snowFall: number[];
   weatherCode: number[];
@@ -34,7 +34,7 @@ export interface DailyData {
 }
 
 export interface WeatherData {
-  // --- الأساسيات (Current) ---
+  // --- Basic ---
   temp: number;
   feelsLike: number;
   humidity: number;
@@ -45,37 +45,38 @@ export interface WeatherData {
   windDir: number;
   description: string;
   weatherCode: number;
+  cloudCover: number; // <--- AJOUTÉ ICI (C'était le manquant)
   isDay: boolean;
   city: string;
   country: string;
   
-  // --- الفلك (Astronomy) ---
+  // --- Astronomy ---
   sunrise: string;
   sunset: string;
   moonPhase: string;
   dayLength: number;
 
-  // --- البيئة والصحة (Bio) ---
+  // --- Bio ---
   uvIndex: number;
   visibility: number;
   dewPoint: number;
-  airQuality: number; // AQI
+  airQuality: number;
   pollen: number;
   
-  // --- الزراعة (Agro) ---
+  // --- Agro ---
   soilMoisture: number;
   soilTemp: number;
   evapotranspiration: number;
   leafWetness: number;
 
-  // --- المخاطر (Hazards) ---
+  // --- Hazards ---
   rainProb: number;
   rainAmount: number;
   snowDepth: number;
   freezingRain: boolean;
-  cape: number; // طاقة الحمل الحراري للعواصف
+  cape: number;
 
-  // --- البيانات الساعية واليومية ---
+  // --- Arrays ---
   hourly: HourlyData;
   daily: DailyData;
 }

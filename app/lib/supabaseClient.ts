@@ -1,10 +1,10 @@
-// app/lib/supabaseClient.ts
 import { createClient } from '@supabase/supabase-js';
 
-// رابط مشروعك الصحيح (تم استخراجه من الرابط الذي أرسلته)
-const supabaseUrl = 'https://urjylvudmgaercnblpao.supabase.co';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-// مفتاحك العام
-const supabaseKey = 'sb_publishable_zv7P7Cahna6tA_qkFedKQA_wFc4YWfF';
+if (!supabaseUrl || !supabaseKey) {
+  console.warn('⚠️ Supabase credentials missing! Check .env.local');
+}
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+export const supabase = createClient(supabaseUrl || '', supabaseKey || '');
