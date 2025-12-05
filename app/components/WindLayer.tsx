@@ -1,68 +1,48 @@
 'use client';
 
 import { useEffect } from 'react';
+import { useMap } from 'react-leaflet';
+import L from 'leaflet';
 
-interface WindLayerProps {
-  map: any;
-  active: boolean;
-}
+export default function WindLayer() {
+  const map = useMap();
 
-export default function WindLayer({ map, active }: WindLayerProps) {
   useEffect(() => {
-    if (!map || typeof window === 'undefined') return;
+    // API KEY تجريبي، يجب استبداله بمفتاحك الخاص أو استخدام تقنية Velocity
+    const APPID = 'b1b15e88fa797225412429c1c50c122a1'; 
 
-    // تنظيف الطبقات القديمة لمنع التكرار
-    const cleanUp = () => {
-      map.eachLayer((layer: any) => {
-        if (layer._isWindLayer) {
-          map.removeLayer(layer);
-        }
-      });
-    };
-
-    if (!active) {
-      cleanUp();
-      return;
-    }
-
-    const L = (window as any).L;
+    // طبقات الحركة
+    const windSpeedLayer = L.tileLayer(`https://tile.openweathermap.org/map/wind_new/{z}/{x}/{y}.png?appid=${APPID}`, {
+      opacity: 0.6,
+      zIndex: 5, // طبقة متوسطة
+      attribution: 'Wind Flow'
+    });
     
-    // نتحقق أن مكتبة الرياح تم تحميلها في الصفحة الرئيسية
-    if (!L || !L.velocityLayer) {
-      console.warn("WindLayer: Leaflet or Velocity not loaded yet.");
-      return;
-    }
+    // طبقة الضغط الجوي (لتحقيق خطوط التساوي)
+    const pressureLayer = L.tileLayer(`https://tile.openweathermap.org/map/pressure_new/{z}/{x}/{y}.png?appid=${APPID}`, {
+      opacity: 0.5,
+      zIndex: 6, // فوق الرياح
+      attribution: 'Pressure'
+    });
+    
+    // طبقة الحرارة (Heatmap)
+    const tempLayer = L.tileLayer(`https://tile.openweathermap.org/map/temp_new/{z}/{x}/{y}.png?appid=${APPID}`, {
+      opacity: 0.4,
+      zIndex: 4, // أسفل الرياح
+      attribution: 'Temperature'
+    });
 
-    // جلب بيانات الرياح التجريبية
-    fetch('https://raw.githubusercontent.com/onaci/leaflet-velocity/master/demo/wind-global.json')
-      .then((res) => res.json())
-      .then((data) => {
-        cleanUp(); // تنظيف قبل الرسم
+    // إضافة الطبقات للعمل
+    map.addLayer(windSpeedLayer);
+    map.addLayer(pressureLayer);
+    map.addLayer(tempLayer);
 
-        const velocityLayer = L.velocityLayer({
-          displayValues: true,
-          displayOptions: {
-            velocityType: 'Global Wind',
-            position: 'bottomleft',
-            emptyString: 'No wind data',
-            angleConvention: 'bearingCW',
-            displayEmptyString: 'No wind data',
-            speedUnit: 'km/h'
-          },
-          data: data,
-          maxVelocity: 15,
-          velocityScale: 0.005 
-        });
-
-        // علامة لتمييز الطبقة وحذفها لاحقاً
-        (velocityLayer as any)._isWindLayer = true;
-        
-        velocityLayer.addTo(map);
-      })
-      .catch(err => console.error("Wind Data Error:", err));
-
-    return () => cleanUp();
-  }, [map, active]);
+    return () => {
+      map.removeLayer(windSpeedLayer);
+      map.removeLayer(pressureLayer);
+      map.removeLayer(tempLayer);
+    };
+  }, [map]);
 
   return null;
 }

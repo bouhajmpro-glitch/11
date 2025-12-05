@@ -19,6 +19,7 @@
     "eslint": "8.49.0",
     "eslint-config-next": "13.5.1",
     "leaflet": "^1.9.4",
+    "leaflet.heat": "^0.2.0",
     "lucide-react": "^0.555.0",
     "next": "13.5.1",
     "postcss": "8.4.30",
@@ -30,6 +31,7 @@
     "typescript": "5.2.2"
   },
   "devDependencies": {
-    "@types/leaflet": "^1.9.21"
+    "@types/leaflet": "^1.9.21",
+    "@types/leaflet.heat": "^0.2.5"
   }
 }
