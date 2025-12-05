@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef } from 'react';
-import { GridDataPoint } from '../core/weather/api';
+import L from 'leaflet';
+import { GridDataPoint } from '../core/weather/gridApi';
 
 interface Props {
   map: any;
@@ -11,20 +12,22 @@ interface Props {
 export default function HeatmapLayer({ map, data, type }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  // دالة تلوين القيم (Windy Style)
+  // نظام ألوان Windy
   const getColor = (val: number) => {
     if (type === 'temp') {
-      if (val < 0) return `rgba(255, 255, 255, 0.6)`;
-      if (val < 10) return `rgba(0, 100, 255, 0.6)`;
-      if (val < 20) return `rgba(0, 255, 0, 0.6)`;
-      if (val < 30) return `rgba(255, 165, 0, 0.7)`;
-      return `rgba(255, 0, 0, 0.7)`;
+      if (val < 0) return `rgba(255, 255, 255, 0.6)`; // ثلوج
+      if (val < 10) return `rgba(0, 100, 255, 0.5)`;  // بارد
+      if (val < 20) return `rgba(0, 200, 0, 0.5)`;    // ربيع
+      if (val < 30) return `rgba(255, 165, 0, 0.5)`;  // حار
+      return `rgba(255, 0, 0, 0.6)`;                  // حار جداً
     }
     if (type === 'pressure') {
-      const alpha = (val - 980) / 60; 
-      return `rgba(100, 0, 200, ${0.2 + alpha * 0.5})`;
+      // الضغط: بنفسجي للمنخفض، أزرق للمرتفع
+      const alpha = Math.max(0.2, Math.min(0.8, (val - 980) / 60)); 
+      return `rgba(100, 0, 200, ${alpha})`;
     }
     if (type === 'clouds') {
+      // السحب: أبيض شفاف حسب الكثافة
       return `rgba(200, 200, 200, ${val / 100})`;
     }
     return 'rgba(0,0,0,0)';
@@ -33,22 +36,23 @@ export default function HeatmapLayer({ map, data, type }: Props) {
   useEffect(() => {
     if (!map || !data || data.length === 0 || typeof window === 'undefined') return;
 
-    const L = (window as any).L;
-    if (!L) return;
+    const L_global = (window as any).L;
+    if (!L_global) return;
 
-    // 1. إنشاء طبقة الكانفاس
+    // 1. إنشاء طبقة العرض (Pane)
     const paneName = 'heatmapPane';
     let pane = map.getPane(paneName);
     
     if (!pane) {
       pane = map.createPane(paneName);
-      pane.style.zIndex = '350'; // فوق الخلفية
+      pane.style.zIndex = '350'; // فوق الخريطة، تحت الرياح
     }
 
     if (!pane) return;
 
-    const canvas = L.DomUtil.create('canvas', 'leaflet-heatmap-layer');
-    canvas.style.pointerEvents = 'none'; // السماح بالنقر عبر الطبقة
+    // إعداد الكانفاس
+    const canvas = L_global.DomUtil.create('canvas', 'leaflet-heatmap-layer');
+    canvas.style.pointerEvents = 'none';
     canvas.style.position = 'absolute';
     canvas.style.top = '0';
     canvas.style.left = '0';
@@ -58,34 +62,35 @@ export default function HeatmapLayer({ map, data, type }: Props) {
 
     // 2. دالة الرسم
     const draw = () => {
-      if (!map || !canvas) return;
+      if (!map || !canvasRef.current) return;
+      const cvs = canvasRef.current;
+      const ctx = cvs.getContext('2d');
+      if (!ctx) return;
 
       const size = map.getSize();
       const pixelRatio = window.devicePixelRatio || 1;
-      
-      canvas.width = size.x * pixelRatio;
-      canvas.height = size.y * pixelRatio;
-      canvas.style.width = `${size.x}px`;
-      canvas.style.height = `${size.y}px`;
-      
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
+
+      // ضبط الدقة
+      cvs.width = size.x * pixelRatio;
+      cvs.height = size.y * pixelRatio;
+      cvs.style.width = `${size.x}px`;
+      cvs.style.height = `${size.y}px`;
 
       ctx.scale(pixelRatio, pixelRatio);
       ctx.clearRect(0, 0, size.x, size.y);
       
-      // التنعيم (Blur) هو السر لجعل النقاط تبدو كسائل متصل
-      ctx.filter = 'blur(25px)';
+      // **السر:** تمويه قوي (Blur) لدمج الدوائر وجعلها كالسائل
+      ctx.filter = 'blur(40px)';
 
       data.forEach(point => {
-        const latLng = new L.LatLng(point.lat, point.lng);
+        const latLng = new L_global.LatLng(point.lat, point.lng);
         const pixel = map.latLngToContainerPoint(latLng);
 
-        // رسم دائرة ملونة لكل نقطة
-        // نتحقق أولاً أنها داخل الشاشة للأداء
+        // رسم دائرة كبيرة لكل نقطة بيانات
+        // نتحقق أنها داخل الشاشة للأداء
         if (pixel.x > -100 && pixel.x < size.x + 100 && pixel.y > -100 && pixel.y < size.y + 100) {
             ctx.beginPath();
-            ctx.arc(pixel.x, pixel.y, 70, 0, 2 * Math.PI); // نصف قطر كبير للمزج
+            ctx.arc(pixel.x, pixel.y, 80, 0, 2 * Math.PI); // نصف قطر كبير للتداخل
             ctx.fillStyle = getColor(point.value);
             ctx.fill();
         }
@@ -95,19 +100,17 @@ export default function HeatmapLayer({ map, data, type }: Props) {
     // الرسم الأولي
     draw();
 
-    // إعادة الرسم عند التحريك والتكبير
+    // إعادة الرسم عند الحركة
     map.on('move', draw);
     map.on('resize', draw);
     map.on('zoom', draw);
 
-    // التنظيف
     return () => {
       map.off('move', draw);
       map.off('resize', draw);
       map.off('zoom', draw);
-      
-      if (canvas && canvas.parentNode) {
-        canvas.parentNode.removeChild(canvas);
+      if (canvasRef.current && canvasRef.current.parentNode) {
+        canvasRef.current.parentNode.removeChild(canvasRef.current);
       }
       canvasRef.current = null;
     };
