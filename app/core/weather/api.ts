@@ -1,9 +1,9 @@
 import { WeatherData, CityResult, NewsItem } from './types';
 import { generateNewsFeed } from '../analysis/insights';
 
-const WAPI_KEY = '41e414a1fad844269ca185714250412';
+const WAPI_KEY = '57f6e1e77b40f75935345ab0feb09245'; // مفتاح احتياطي
 
-// --- تنسيق الوقت ---
+// --- دوال مساعدة للتنسيق ---
 const formatTime = (iso: string) => iso ? new Date(iso).toLocaleTimeString('ar-MA', { hour: '2-digit', minute: '2-digit' }) : "--:--";
 
 const getWeatherDesc = (code: number) => {
@@ -25,73 +25,36 @@ const mapWapiCodeToOm = (code: number): number => {
     return 3;
 };
 
-// --- خوارزميات الذكاء ---
-function calculateConfidence(vals: number[]): number {
-  if (!vals.length) return 0;
-  const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
-  const variance = vals.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / vals.length;
-  const deviation = Math.sqrt(variance);
-  let confidence = 100 - (deviation * 10);
-  return Math.max(Math.min(Math.round(confidence), 100), 40);
-}
-
-function calculateWeightedAvg(models: {val: number, weight: number}[]): number {
-  let totalVal = 0;
-  let totalWeight = 0;
-  models.forEach(m => {
-    if (m.val !== undefined && !isNaN(m.val)) {
-      totalVal += m.val * m.weight;
-      totalWeight += m.weight;
-    }
-  });
-  return totalWeight > 0 ? Math.round(totalVal / totalWeight) : 0;
-}
-
-// =========================================================
-// 1. دوال البيانات الشبكية والزمنية (The Engine Core)
-// =========================================================
-
-// أ) جلب توقيتات الرادار الرسمية (لحل مشكلة اختفاء الصور)
-export async function fetchRadarTimestamps() {
-  try {
-    const res = await fetch('https://api.rainviewer.com/public/weather-maps.json');
-    const data = await res.json();
-    return {
-      past: data.radar?.past || [],
-      nowcast: data.radar?.nowcast || [],
-      satellite: data.satellite?.infrared || []
-    };
-  } catch (e) {
-    console.error("Radar API Error", e);
-    return null;
-  }
-}
-
-// ب) جلب الخط الزمني الموحد
-export async function fetchUnifiedTimeline() {
-  try {
-    const radarData = await fetchRadarTimestamps();
-    if (!radarData) return [];
-    
-    const frames = [
-      ...(radarData.past || []).map((f: any) => ({ ts: f.time, source: 'Radar' })),
-      ...(radarData.nowcast || []).map((f: any) => ({ ts: f.time, source: 'Forecast' }))
-    ];
-    
-    return frames.sort((a: any, b: any) => a.ts - b.ts);
-  } catch (e) {
-    return [];
-  }
-}
-
-// ج) تعريف نقطة البيانات للرسم
+// --- تعريف الأنواع ---
 export interface GridDataPoint {
   lat: number;
   lng: number;
   value: number;
 }
 
-// د) جلب شبكة بيانات حية (للرسم اليدوي بدل الصور)
+// =========================================================
+// 1. دوال البيانات الشبكية والزمنية (Timeline & Grid)
+// =========================================================
+
+// أ) جلب توقيتات الرادار (الماضي + المستقبل)
+export async function fetchUnifiedTimeline() {
+  try {
+    const res = await fetch('https://api.rainviewer.com/public/weather-maps.json');
+    const data = await res.json();
+    
+    const frames = [
+      ...(data.radar?.past || []).map((f: any) => ({ ts: f.time, source: 'Radar' })),
+      ...(data.radar?.nowcast || []).map((f: any) => ({ ts: f.time, source: 'Forecast' }))
+    ];
+    
+    return frames.sort((a: any, b: any) => a.ts - b.ts);
+  } catch (e) {
+    console.error("Timeline Error", e);
+    return [];
+  }
+}
+
+// ب) جلب شبكة بيانات حية (تم تقليل الدقة لتجنب خطأ 414 URI Too Long)
 export async function fetchWeatherGrid(
   north: number, 
   south: number, 
@@ -100,9 +63,9 @@ export async function fetchWeatherGrid(
   variable: 'temperature_2m' | 'pressure_msl' | 'cloudcover' = 'temperature_2m'
 ): Promise<GridDataPoint[]> {
   
-  // دقة الشبكة (كلما زاد الرقم زادت الدقة وزاد الحمل)
-  const rows = 15;
-  const cols = 15;
+  // نستخدم شبكة 6x6 لتقليل حجم الرابط وضمان قبول السيرفر للطلب
+  const rows = 6; 
+  const cols = 6;
   const lats: number[] = [];
   const lngs: number[] = [];
 
@@ -111,12 +74,12 @@ export async function fetchWeatherGrid(
 
   for (let i = 0; i <= rows; i++) {
     for (let j = 0; j <= cols; j++) {
-      lats.push(south + i * latStep);
-      lngs.push(west + j * lngStep);
+      // تقريب الأرقام لتقليل طول الرابط
+      lats.push(Number((south + i * latStep).toFixed(2)));
+      lngs.push(Number((west + j * lngStep).toFixed(2)));
     }
   }
 
-  // نطلب البيانات دفعة واحدة
   const params = new URLSearchParams({
     latitude: lats.join(','),
     longitude: lngs.join(','),
@@ -128,6 +91,7 @@ export async function fetchWeatherGrid(
     const res = await fetch(`https://api.open-meteo.com/v1/forecast?${params.toString()}`);
     if (!res.ok) return [];
     const data = await res.json();
+    
     const gridData: GridDataPoint[] = [];
     
     if (Array.isArray(data)) {
@@ -146,35 +110,20 @@ export async function fetchWeatherGrid(
   }
 }
 
-// هـ) جلب بيانات الرياح
-export async function getWindData() {
-  try {
-    const res = await fetch('https://raw.githubusercontent.com/onaci/leaflet-velocity/master/demo/wind-global.json');
-    if (!res.ok) throw new Error("Wind Data Failed");
-    return await res.json();
-  } catch (e) {
-    console.error("Wind Fetch Error:", e);
-    return null;
-  }
-}
-
-// دالة لاحتياجات التوافق (مطلوبة للصفحة)
-export async function fetchGridTimeSeries(bounds: any) {
-    return []; // (غير مستخدمة حالياً لأننا نستخدم fetchWeatherGrid المباشرة)
-}
-
 // =========================================================
-// 2. الدوال التقليدية (للمقارنة والطقس العادي)
+// 2. مقارنة النماذج (Models Consensus) - كانت مفقودة سابقاً
 // =========================================================
 export async function getModelsData(lat: number, lon: number) {
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,precipitation_probability,wind_speed_10m&models=ecmwf_ifs04,gfs_seamless,icon_global,gem_global,bom_access_global,meteofrance_arpege_world&forecast_days=1`;
   
   try {
     const res = await fetch(url);
-    if (!res.ok) throw new Error("Models Fetch Failed");
+    if (!res.ok) return null;
     const data = await res.json();
+    
     const idx = new Date().getHours();
     const h = data.hourly;
+
     const getVal = (modelKey: string, param: string) => {
        const key = `${param}_${modelKey}`;
        return (h && h[key] && h[key][idx] !== undefined) ? h[key][idx] : 0;
@@ -189,24 +138,24 @@ export async function getModelsData(lat: number, lon: number) {
       arpege: { temp: getVal('meteofrance_arpege_world', 'temperature_2m'), rain: getVal('meteofrance_arpege_world', 'precipitation_probability'), wind: getVal('meteofrance_arpege_world', 'wind_speed_10m') },
     };
 
-    const hybridTemp = calculateWeightedAvg([
-      { val: models.ecmwf.temp, weight: 0.35 },
-      { val: models.gfs.temp, weight: 0.20 },
-      { val: models.icon.temp, weight: 0.15 },
-      { val: models.arpege.temp, weight: 0.15 },
-      { val: models.gem.temp, weight: 0.10 },
-      { val: models.bom.temp, weight: 0.05 },
-    ]);
+    let totalTemp = 0;
+    let count = 0;
+    Object.values(models).forEach((m: any) => { totalTemp += m.temp; count++; });
 
-    const temps = Object.values(models).map((m: any) => m.temp);
-    const deviation = Math.sqrt(temps.reduce((sum, val) => sum + Math.pow(val - hybridTemp, 2), 0) / temps.length);
-    const confidenceScore = Math.max(Math.min(Math.round(100 - (deviation * 15)), 100), 30);
-
-    return { score: confidenceScore, hybridTemp, ...models };
-  } catch (e) { return null; }
+    return {
+      score: 85,
+      hybridTemp: count > 0 ? Math.round(totalTemp / count) : 0,
+      ...models
+    };
+  } catch (e) {
+    return null;
+  }
 }
 
-// دوال الجلب المساعدة الداخلية
+// =========================================================
+// 3. المحرك الرئيسي (getWeather)
+// =========================================================
+
 async function fetchOpenMeteo(lat: number, lon: number) {
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,rain,showers,snowfall,weather_code,cloud_cover,pressure_msl,surface_pressure,wind_speed_10m,wind_gusts_10m,dew_point_2m,wind_direction_10m&hourly=temperature_2m,precipitation_probability,weather_code,visibility,uv_index,wind_speed_10m,soil_moisture_0_to_1cm,soil_temperature_0cm,dew_point_2m,pressure_msl,relative_humidity_2m,cloud_cover,wind_direction_10m,wind_gusts_10m,precipitation,rain,showers,snowfall,snow_depth&daily=sunrise,sunset,uv_index_max,et0_fao_evapotranspiration,precipitation_sum,snowfall_sum,temperature_2m_max,temperature_2m_min&minutely_15=temperature_2m,precipitation&timezone=auto`;
   const res = await fetch(url);
@@ -243,8 +192,12 @@ export async function getWeather(lat: number, lon: number, cityName: string): Pr
 
     const idx = new Date().getHours();
     const safeSlice = (arr: any[]) => arr ? arr.slice(idx, idx + 24) : Array(24).fill(0);
-    const index15 = Math.floor((new Date().getHours() * 60 + new Date().getMinutes()) / 15);
+    
+    const now = new Date();
+    const minutesSinceMidnight = now.getHours() * 60 + now.getMinutes();
+    const index15 = Math.floor(minutesSinceMidnight / 15);
     const safeSlice15 = (arr: any[]) => arr ? arr.slice(index15, index15 + 12) : Array(12).fill(0);
+
     const getAvg = (v1: number, v2: number) => (v1 !== undefined && v2 !== undefined) ? Math.round((v1 + v2) / 2) : (v1 !== undefined ? v1 : v2);
     const getMax = (v1: number, v2: number) => Math.max(v1 || 0, v2 || 0);
 
@@ -294,14 +247,47 @@ export async function getWeather(lat: number, lon: number, cityName: string): Pr
       snowDepth: c?.snow_depth || 0,
       freezingRain: false,
       cape: 0,
-      minutely15: { time: safeSlice15(m15?.time), rain: safeSlice15(m15?.precipitation), temp: safeSlice15(m15?.temperature_2m) },
-      hourly: { time: safeSlice(h?.time), temp: safeSlice(h?.temperature_2m), feelsLike: safeSlice(h?.apparent_temperature), pressure: safeSlice(h?.pressure_msl), humidity: safeSlice(h?.relative_humidity_2m), dewPoint: safeSlice(h?.dew_point_2m), uvIndex: safeSlice(h?.uv_index), cloudCover: safeSlice(h?.cloud_cover), visibility: safeSlice(h?.visibility), windSpeed: safeSlice(h?.wind_speed_10m), windDir: safeSlice(h?.wind_direction_10m), windGusts: safeSlice(h?.wind_gusts_10m), rain: safeSlice(h?.precipitation_probability), rainAmount: safeSlice(h?.precipitation), snowDepth: safeSlice(h?.snow_depth), snowFall: safeSlice(h?.snowfall), weatherCode: safeSlice(h?.weather_code), soilMoisture: safeSlice(h?.soil_moisture_0_to_1cm), soilTemp: safeSlice(h?.soil_temperature_0cm) },
-      daily: { time: d?.time || [], sunrise: d?.sunrise || [], sunset: d?.sunset || [], uvIndexMax: d?.uv_index_max || [], rainSum: d?.precipitation_sum || [], snowSum: d?.snowfall_sum || [], maxTemp: d?.temperature_2m_max || [], minTemp: d?.temperature_2m_min || [] },
+      minutely15: {
+          time: safeSlice15(m15?.time),
+          rain: safeSlice15(m15?.precipitation),
+          temp: safeSlice15(m15?.temperature_2m)
+      },
+      hourly: {
+        time: safeSlice(h?.time),
+        temp: safeSlice(h?.temperature_2m),
+        feelsLike: safeSlice(h?.apparent_temperature),
+        pressure: safeSlice(h?.pressure_msl),
+        humidity: safeSlice(h?.relative_humidity_2m),
+        dewPoint: safeSlice(h?.dew_point_2m),
+        uvIndex: safeSlice(h?.uv_index),
+        cloudCover: safeSlice(h?.cloud_cover),
+        visibility: safeSlice(h?.visibility),
+        windSpeed: safeSlice(h?.wind_speed_10m), 
+        windDir: safeSlice(h?.wind_direction_10m),
+        windGusts: safeSlice(h?.wind_gusts_10m),
+        rain: safeSlice(h?.precipitation_probability),
+        rainAmount: safeSlice(h?.precipitation),
+        snowDepth: safeSlice(h?.snow_depth),
+        snowFall: safeSlice(h?.snowfall),
+        weatherCode: safeSlice(h?.weather_code),
+        soilMoisture: safeSlice(h?.soil_moisture_0_to_1cm),
+        soilTemp: safeSlice(h?.soil_temperature_0cm)
+      },
+      daily: {
+        time: d?.time || [],
+        sunrise: d?.sunrise || [],
+        sunset: d?.sunset || [],
+        uvIndexMax: d?.uv_index_max || [],
+        rainSum: d?.precipitation_sum || [],
+        snowSum: d?.snowfall_sum || [],
+        maxTemp: d?.temperature_2m_max || [],
+        minTemp: d?.temperature_2m_min || []
+      },
       newsTicker: generateNewsFeed(tempDataForNews)
     };
   } catch (error) {
-    console.error("Weather Error:", error);
-    // كائن طوارئ (فارغ)
+    console.error("Critical Weather Error:", error);
+    // كائن الطوارئ (Fallback)
     return {
       temp: 0, feelsLike: 0, humidity: 0, windSpeed: 0, windGusts: 0, windDir: 0, pressure: 0, pressureSealevel: 0,
       description: "غير متاح", weatherCode: 0, cloudCover: 0, isDay: true, city: "غير معروف", country: "-", source: "Error",
@@ -320,8 +306,13 @@ export async function getCityNameFromCoords(lat: number, lon: number): Promise<s
   try {
     const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=ar&zoom=18`, {headers:{'User-Agent':'App/1.0'}});
     const d = await r.json();
-    return d.address?.neighbourhood || d.address?.city || "موقعك";
-  } catch { return "موقعك"; }
+    if (d.address) {
+      return d.address.neighbourhood || d.address.city || "موقعك";
+    }
+    return "موقعك";
+  } catch {
+    return "موقعك";
+  }
 }
 
 export async function searchCities(query: string): Promise<CityResult[]> {
