@@ -1,46 +1,40 @@
 'use client';
-import { useEffect, useRef } from 'react';
-import L from 'leaflet';
 
-interface Props {
-  map: L.Map;
-  timestamp: number;
+import { useEffect } from 'react';
+import { useMap } from 'react-leaflet';
+import L from 'leaflet';
+// نتجنب استيراد الواجهة من ملف آخر لمنع مشاكل المسارات، نعرفها هنا مباشرة
+interface RadarFrame {
+  time: number;
+  path: string;
+  isForecast: boolean;
 }
 
-export default function RainRadarLayer({ map, timestamp }: Props) {
-  const layerRef = useRef<L.TileLayer | null>(null);
+interface Props {
+  frames: RadarFrame[];
+  currentIndex: number;
+}
+
+export default function RainRadarLayer({ frames, currentIndex }: Props) {
+  const map = useMap();
 
   useEffect(() => {
-    if (!map) return;
+    if (!frames || frames.length === 0 || !frames[currentIndex]) return;
 
-    // 1. استخدام وقت آمن (آخر 10 دقائق) إذا لم يتوفر وقت
-    const now = Math.floor(Date.now() / 1000);
-    const safeTs = timestamp > 0 ? timestamp : (now - (now % 600) - 600);
+    const frame = frames[currentIndex];
+    const tileUrl = `https://tile.cache.rainviewer.com${frame.path}/256/{z}/{x}/{y}/2/1_1.png`;
 
-    // 2. رابط RainViewer المجاني المباشر
-    const url = `https://tile.rainviewer.com/${safeTs}/256/{z}/{x}/{y}/2/1_1.png`;
-
-    // 3. إزالة الطبقة القديمة
-    if (layerRef.current) {
-      map.removeLayer(layerRef.current);
-    }
-
-    // 4. إضافة الطبقة الجديدة
-    const layer = L.tileLayer(url, {
-      opacity: 0.8,
-      zIndex: 500, // فوق الحرارة
-      attribution: 'RainViewer'
+    const layer = L.tileLayer(tileUrl, {
+      opacity: 0.7,
+      zIndex: 10,
     });
 
     layer.addTo(map);
-    layerRef.current = layer;
 
     return () => {
-      if (layerRef.current) {
-        map.removeLayer(layerRef.current);
-      }
+      map.removeLayer(layer);
     };
-  }, [map, timestamp]);
+  }, [map, frames, currentIndex]);
 
   return null;
 }
