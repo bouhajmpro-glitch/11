@@ -9,7 +9,8 @@ interface Props {
   onClose: () => void;
 }
 
-export const RadarAnalysis = ({ data, loading, onClose }: Props) => {
+// تغيير الاسم هنا إلى RadarPanel
+export default function RadarPanel({ data, loading, onClose }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -24,14 +25,13 @@ export const RadarAnalysis = ({ data, loading, onClose }: Props) => {
       (window as any).radarChartInstance.destroy();
     }
 
-    // رسم بياني دقيق للساعات القادمة
     (window as any).radarChartInstance = new Chart(ctx, {
       type: 'line',
       data: {
         labels: data.hourly.time.slice(0, 12).map(t => new Date(t).getHours() + ':00'),
         datasets: [
           {
-            label: 'الحرارة',
+            label: 'الحرارة (°C)',
             data: data.hourly.temp.slice(0, 12),
             borderColor: '#f97316',
             backgroundColor: 'rgba(249, 115, 22, 0.1)',
@@ -40,7 +40,7 @@ export const RadarAnalysis = ({ data, loading, onClose }: Props) => {
             fill: true
           },
           {
-            label: 'أمطار',
+            label: 'أمطار (mm)',
             data: data.hourly.rainAmount.slice(0, 12),
             borderColor: '#3b82f6',
             backgroundColor: 'rgba(59, 130, 246, 0.6)',
@@ -65,7 +65,7 @@ export const RadarAnalysis = ({ data, loading, onClose }: Props) => {
   }, [data, loading]);
 
   if (loading) return (
-    <div className="bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-3xl p-6 text-center shadow-2xl h-64 flex flex-col items-center justify-center">
+    <div className="bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-3xl p-6 text-center shadow-2xl h-64 flex flex-col items-center justify-center ring-1 ring-white/10">
       <Activity className="animate-spin text-blue-500 mb-2" size={32} />
       <span className="text-slate-400 text-xs animate-pulse">جاري تحليل بيانات الحي السكني...</span>
     </div>
@@ -74,7 +74,6 @@ export const RadarAnalysis = ({ data, loading, onClose }: Props) => {
   return (
     <div className="bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-3xl p-5 text-white shadow-2xl ring-1 ring-white/10">
       
-      {/* Header with Precise Location */}
       <div className="flex justify-between items-start mb-4 pb-3 border-b border-white/5">
         <div>
           <h3 className="text-md font-bold flex items-center gap-2 text-blue-100">
@@ -90,7 +89,6 @@ export const RadarAnalysis = ({ data, loading, onClose }: Props) => {
         </button>
       </div>
 
-      {/* 4 Key Metrics Grid */}
       <div className="grid grid-cols-2 gap-2 mb-4">
         <div className="bg-white/5 p-2.5 rounded-xl flex items-center gap-2 border border-white/5 hover:bg-white/10 transition">
           <Wind className="text-teal-400" size={18} />
@@ -99,7 +97,6 @@ export const RadarAnalysis = ({ data, loading, onClose }: Props) => {
             <div className="font-bold text-sm">{data.windSpeed} <span className="text-[9px] text-slate-500">km/h</span></div>
           </div>
         </div>
-        
         <div className="bg-white/5 p-2.5 rounded-xl flex items-center gap-2 border border-white/5 hover:bg-white/10 transition">
           <Gauge className="text-purple-400" size={18} />
           <div>
@@ -107,7 +104,6 @@ export const RadarAnalysis = ({ data, loading, onClose }: Props) => {
             <div className="font-bold text-sm">{data.pressure} <span className="text-[9px] text-slate-500">hPa</span></div>
           </div>
         </div>
-
         <div className="bg-white/5 p-2.5 rounded-xl flex items-center gap-2 border border-white/5 hover:bg-white/10 transition">
           <Zap className="text-yellow-400" size={18} />
           <div>
@@ -115,7 +111,6 @@ export const RadarAnalysis = ({ data, loading, onClose }: Props) => {
             <div className="font-bold text-sm">{data.cape || 0} <span className="text-[9px] text-slate-500">J/kg</span></div>
           </div>
         </div>
-
         <div className="bg-white/5 p-2.5 rounded-xl flex items-center gap-2 border border-white/5 hover:bg-white/10 transition">
           <CloudRain className="text-blue-400" size={18} />
           <div>
@@ -125,7 +120,6 @@ export const RadarAnalysis = ({ data, loading, onClose }: Props) => {
         </div>
       </div>
 
-      {/* The Chart */}
       <div className="bg-slate-950/50 rounded-2xl p-2 border border-white/5 h-40">
         <canvas ref={canvasRef}></canvas>
       </div>
@@ -137,4 +131,4 @@ export const RadarAnalysis = ({ data, loading, onClose }: Props) => {
       </div>
     </div>
   );
-};
+}
